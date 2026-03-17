@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler } from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
 import { getReportSuppliers } from '../../api';
 import { parseAmount, formatShort } from '../../utils';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
+let chartsLoaded = false;
+let Bar = null;
+let Doughnut = null;
+
+try {
+  const ChartJS = require('chart.js');
+  const { CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler } = ChartJS;
+  ChartJS.Chart.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
+  const chartjs2 = require('react-chartjs-2');
+  Bar = chartjs2.Bar;
+  Doughnut = chartjs2.Doughnut;
+  chartsLoaded = true;
+} catch (e) {
+  console.error('Chart.js load error:', e);
+}
 
 const Reports = ({ invoices = [], stages = [] }) => {
   const [reportSuppliers, setReportSuppliers] = useState([]);
@@ -16,6 +28,16 @@ const Reports = ({ invoices = [], stages = [] }) => {
   if (!stages.length) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink4)' }}>Loading reports...</div>;
   }
+
+  const stageCounts = stages.map(s => s.count || 0);
+  const totalCount = stageCounts.reduce((sum, c) => sum + c, 0) || 1;
+
+  const totalInvoiced = invoices.reduce((s, i) => s + parseAmount(i.total), 0);
+  const paidInvs = invoices.filter(i => i.stageIdx === 6);
+  const totalPaid = paidInvs.reduce((s, i) => s + parseAmount(i.total), 0);
+  const paymentRate = totalInvoiced ? ((totalPaid / totalInvoiced) * 100).toFixed(1) : 0;
+  const avgValue = invoices.length ? Math.round(totalInvoiced / invoices.length) : 0;
+  const onTime = invoices.length ? Math.round((invoices.filter(i => i.dueType === 'ok').length / invoices.length) * 100) : 0;
 
   const barData = {
     labels: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
@@ -32,52 +54,45 @@ const Reports = ({ invoices = [], stages = [] }) => {
       y1: { beginAtZero: true, position: 'right', grid: { display: false }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, callback: v => '₹' + v + 'L' } },
     },
   };
-  const stageCounts = stages.map(s => s.count || 0);
   const doughnutData = {
     labels: stages.map(s => s.label),
     datasets: [{ data: stageCounts, backgroundColor: ['#edf2fc', '#f3eeff', '#e6f6f4', '#fdf5e6', '#f3eef9', '#fef0f0', '#eaf4ee'], borderColor: ['#3b6fd4', '#8b3fd4', '#0a7c6e', '#c07b00', '#6d3fa0', '#e84040', '#2e7d52'], borderWidth: 2 }],
   };
 
-  const totalCount = stageCounts.reduce((sum, c) => sum + c, 0) || 1;
-
   return (
     <div>
       <div className="section-hd">
-        <div className="sh-left"><h2>Reports &amp; Analytics</h2><p>Financial intelligence for FY 2024–25</p></div>
+        <div className="sh-left"><h2>Reports &amp; Analytics</h2><p>Financial intelligence overview</p></div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <select className="f-input" style={{ width: 'auto', padding: '6px 12px', fontSize: '12.5px' }}><option>FY 2024–25</option><option>FY 2023–24</option></select>
           <button className="btn btn-ghost btn-sm">Export PDF</button>
         </div>
       </div>
-      {(() => {
-        const totalInvoiced = invoices.reduce((s, i) => s + parseAmount(i.total), 0);
-        const paidInvs = invoices.filter(i => i.stageIdx === 6);
-        const totalPaid = paidInvs.reduce((s, i) => s + parseAmount(i.total), 0);
-        const paymentRate = totalInvoiced ? ((totalPaid / totalInvoiced) * 100).toFixed(1) : 0;
-        const avgValue = invoices.length ? Math.round(totalInvoiced / invoices.length) : 0;
-        const onTime = invoices.length ? Math.round((invoices.filter(i => i.dueType === 'ok').length / invoices.length) * 100) : 0;
-        return (
+
       <div className="report-stats">
         <div className="stat-box"><div className="stat-label">Total Invoiced</div><div className="stat-value">{formatShort(totalInvoiced)}</div><div className="stat-note">{invoices.length} invoices</div></div>
         <div className="stat-box"><div className="stat-label">Total Paid</div><div className="stat-value">{formatShort(totalPaid)}</div><div className="stat-note">{paymentRate}% payment rate</div></div>
         <div className="stat-box"><div className="stat-label">Avg Invoice Value</div><div className="stat-value">{formatShort(avgValue)}</div><div className="stat-note">across {invoices.length} invoices</div></div>
         <div className="stat-box"><div className="stat-label">On-Time Payment</div><div className="stat-value">{onTime}%</div><div className="stat-note">target: 85%</div></div>
       </div>
-        );
-      })()}
-      <div className="report-grid">
-        <div className="chart-card">
-          <div className="chart-hd"><div className="card-title">Monthly Invoice Volume &amp; Value</div><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', color: 'var(--ink4)' }}>FY 2024–25</span></div>
-          <div className="chart-body"><Bar data={barData} options={barOptions} /></div>
-        </div>
-        <div className="chart-card">
-          <div className="chart-hd"><div className="card-title">Stage Distribution</div></div>
-          <div className="chart-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ maxHeight: '200px', maxWidth: '200px' }}>{stages.length > 0 && <Doughnut data={doughnutData} options={{ cutout: '68%', plugins: { legend: { display: false } } }} />}</div>
+
+      {chartsLoaded && (
+        <div className="report-grid">
+          <div className="chart-card">
+            <div className="chart-hd"><div className="card-title">Monthly Invoice Volume &amp; Value</div></div>
+            <div className="chart-body"><Bar data={barData} options={barOptions} /></div>
+          </div>
+          <div className="chart-card">
+            <div className="chart-hd"><div className="card-title">Stage Distribution</div></div>
+            <div className="chart-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ maxHeight: '200px', maxWidth: '200px' }}>
+                {totalCount > 0 && <Doughnut data={doughnutData} options={{ cutout: '68%', plugins: { legend: { display: false } } }} />}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: 20 }}>
         <div>
           <div className="section-hd" style={{ marginBottom: '10px' }}><div className="sh-left"><h2 style={{ fontSize: '15px' }}>Stage-wise Breakdown</h2></div></div>
           <div className="stage-breakdown card">
@@ -85,7 +100,7 @@ const Reports = ({ invoices = [], stages = [] }) => {
               const count = s.count || 0;
               const pct = Math.round(count / totalCount * 100);
               return (
-                <div className="sb-row" key={s.id}>
+                <div className="sb-row" key={s.id || i}>
                   <div className="sb-color" style={{ background: s.color }} />
                   <div className="sb-label">{s.label}</div>
                   <div className="sb-bar-wrap"><div className="sb-bar" style={{ width: `${pct}%`, background: s.color }} /></div>
@@ -100,8 +115,8 @@ const Reports = ({ invoices = [], stages = [] }) => {
           <div className="section-hd" style={{ marginBottom: '10px' }}><div className="sh-left"><h2 style={{ fontSize: '15px' }}>Top Suppliers by Value</h2></div></div>
           <div className="card"><table>
             <thead><tr><th>Supplier</th><th style={{ textAlign: 'right' }}>Invoices</th><th style={{ textAlign: 'right' }}>Total Value</th><th style={{ textAlign: 'right' }}>Paid</th></tr></thead>
-            <tbody>{reportSuppliers.map((s) => (
-              <tr key={s.supplier}><td className="td-bold" style={{ fontSize: '12.5px' }}>{s.supplier}</td><td className="td-mono" style={{ textAlign: 'right' }}>{s.invoices}</td><td className="td-mono" style={{ textAlign: 'right' }}>{s.total}</td><td className="td-mono td-grn" style={{ textAlign: 'right' }}>{s.paid}</td></tr>
+            <tbody>{reportSuppliers.map((s, i) => (
+              <tr key={s.supplier || i}><td className="td-bold" style={{ fontSize: '12.5px' }}>{s.supplier}</td><td className="td-mono" style={{ textAlign: 'right' }}>{s.invoices}</td><td className="td-mono" style={{ textAlign: 'right' }}>{s.total}</td><td className="td-mono td-grn" style={{ textAlign: 'right' }}>{s.paid}</td></tr>
             ))}</tbody>
           </table></div>
         </div>
