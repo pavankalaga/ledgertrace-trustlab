@@ -6,12 +6,16 @@ import { parseAmount, formatShort } from '../../utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
-const Reports = ({ invoices, stages }) => {
+const Reports = ({ invoices = [], stages = [] }) => {
   const [reportSuppliers, setReportSuppliers] = useState([]);
 
   useEffect(() => {
     getReportSuppliers().then(setReportSuppliers).catch(console.error);
   }, []);
+
+  if (!stages.length) {
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink4)' }}>Loading reports...</div>;
+  }
 
   const barData = {
     labels: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
@@ -28,12 +32,13 @@ const Reports = ({ invoices, stages }) => {
       y1: { beginAtZero: true, position: 'right', grid: { display: false }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, callback: v => '₹' + v + 'L' } },
     },
   };
+  const stageCounts = stages.map(s => s.count || 0);
   const doughnutData = {
     labels: stages.map(s => s.label),
-    datasets: [{ data: stages.map(s => s.count), backgroundColor: ['#edf2fc', '#f3eeff', '#e6f6f4', '#fdf5e6', '#f3eef9', '#fef0f0', '#eaf4ee'], borderColor: ['#3b6fd4', '#8b3fd4', '#0a7c6e', '#c07b00', '#6d3fa0', '#e84040', '#2e7d52'], borderWidth: 2 }],
+    datasets: [{ data: stageCounts, backgroundColor: ['#edf2fc', '#f3eeff', '#e6f6f4', '#fdf5e6', '#f3eef9', '#fef0f0', '#eaf4ee'], borderColor: ['#3b6fd4', '#8b3fd4', '#0a7c6e', '#c07b00', '#6d3fa0', '#e84040', '#2e7d52'], borderWidth: 2 }],
   };
 
-  const totalCount = stages.reduce((sum, s) => sum + s.count, 0) || 1;
+  const totalCount = stageCounts.reduce((sum, c) => sum + c, 0) || 1;
 
   return (
     <div>
@@ -76,15 +81,19 @@ const Reports = ({ invoices, stages }) => {
         <div>
           <div className="section-hd" style={{ marginBottom: '10px' }}><div className="sh-left"><h2 style={{ fontSize: '15px' }}>Stage-wise Breakdown</h2></div></div>
           <div className="stage-breakdown card">
-            {stages.map(s => (
-              <div className="sb-row" key={s.id}>
-                <div className="sb-color" style={{ background: s.color }} />
-                <div className="sb-label">{s.label}</div>
-                <div className="sb-bar-wrap"><div className="sb-bar" style={{ width: `${Math.round(s.count / totalCount * 100)}%`, background: s.color }} /></div>
-                <div className="sb-num">{s.count}</div>
-                <div className="sb-amt">{Math.round(s.count / totalCount * 100)}%</div>
-              </div>
-            ))}
+            {stages.map((s, i) => {
+              const count = s.count || 0;
+              const pct = Math.round(count / totalCount * 100);
+              return (
+                <div className="sb-row" key={s.id}>
+                  <div className="sb-color" style={{ background: s.color }} />
+                  <div className="sb-label">{s.label}</div>
+                  <div className="sb-bar-wrap"><div className="sb-bar" style={{ width: `${pct}%`, background: s.color }} /></div>
+                  <div className="sb-num">{count}</div>
+                  <div className="sb-amt">{pct}%</div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div>
