@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx react-scripts:*)",
+      "Bash(npm init:*)",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force ''C:\\\\Users\\\\ADMIN\\\\ledgertrace\\\\build'' -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force ''C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\npm-cache'' -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force ''C:\\\\Users\\\\ADMIN\\\\ledgertrace\\\\backend\\\\example-query.js'' -ErrorAction SilentlyContinue; [math]::Round\\(\\(Get-PSDrive C\\).Free / 1GB, 2\\)\")",
+      "Bash(powershell -Command \"Get-Service -Name ''*mongo*'' -ErrorAction SilentlyContinue | Select-Object Name, Status\")",
+      "Bash(powershell -Command \"Start-Service MongoDB\")",
+      "Bash(powershell -Command \"Get-Service MongoDB | Select-Object Name, Status\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Program Files\\\\MongoDB'' -Recurse -Filter ''mongod.exe'' -ErrorAction SilentlyContinue | Select-Object FullName\")",
+      "Bash(powershell -Command \"Test-Path ''C:\\\\data\\\\db''\")",
+      "Bash(mkdir -p /c/data/db)",
+      "Bash(powershell -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\data\\\\db''\")",
+      "Bash(powershell -Command \"Stop-Process -Id 71336 -Force\")",
+      "Bash(grep -E \"\\\\.\\(js|json\\)$\")",
+      "Bash(powershell -Command \"\\(Get-Process -Id 7156\\).StartTime\")",
+      "Bash(powershell -Command \"Stop-Process -Id 7156 -Force\")",
+      "Bash(node -e \":*)",
+      "Bash(curl -s -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"Admin\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"admin123\"\"\"\"}')"
+    ]
+  }
+}
