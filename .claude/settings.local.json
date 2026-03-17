@@ -18,7 +18,10 @@
       "Bash(powershell -Command \"\\(Get-Process -Id 7156\\).StartTime\")",
       "Bash(powershell -Command \"Stop-Process -Id 7156 -Force\")",
       "Bash(node -e \":*)",
-      "Bash(curl -s -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"Admin\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"admin123\"\"\"\"}')"
+      "Bash(curl -s -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"Admin\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"admin123\"\"\"\"}')",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Stop-Process -Id 42564 -Force\")",
+      "Bash(npm run:*)"
     ]
   }
 }

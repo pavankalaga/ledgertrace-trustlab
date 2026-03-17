@@ -1,10 +1,11 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const connectDB = require('./db');
 const auth = require('./middleware/auth');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
 connectDB();
@@ -31,6 +32,14 @@ app.use('/api/stages', require('./routes/stages'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/company', require('./routes/company'));
 app.use('/api/grn', require('./routes/grn'));
+
+// Serve React build in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../build')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+  });
+}
 
 // Start server
 app.listen(PORT, () => {
