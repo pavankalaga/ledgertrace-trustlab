@@ -82,7 +82,7 @@ function App() {
 
   return (
     <>
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} invoices={invoices} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} invoices={invoices} user={user} />
       <div className="main">
         <Topbar
           onShowToast={showToast}
