@@ -137,6 +137,9 @@ tbody tr:hover td{background:var(--bg)}
 .lc-right{flex:1;padding-bottom:16px;padding-top:3px}
 .lc-sname{font-size:12.5px;font-weight:700}
 .lc-done .lc-sname{color:var(--ink)}
+.lc-blue .lc-node{background:#eef3ff;border-color:#3b6fd4;color:#3b6fd4}
+.lc-blue .lc-sname{color:#3b6fd4}
+.lc-blue .lc-stem{background:#3b6fd4}
 .lc-active .lc-sname{color:var(--coral)}
 .lc-pending .lc-sname{color:var(--ink4)}
 .lc-detail{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4);margin-top:3px;line-height:1.6}

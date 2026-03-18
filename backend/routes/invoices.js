@@ -5,7 +5,7 @@ const { create, update, advanceStage } = require('../controllers/invoiceControll
 
 // GET /api/invoices — return all invoices
 router.get('/', async (req, res) => {
-  const invoices = await Invoice.find();
+  const invoices = await Invoice.find().sort({ createdAt: -1 });
   res.json(invoices);
 });
 

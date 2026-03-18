@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { getPaymentHistory } from '../../api';
+import React from 'react';
 import { parseAmount, formatShort } from '../../utils';
 
 const StagePill = ({ stages, stageIdx }) => {
@@ -26,16 +25,11 @@ const PayCard = ({ inv, stages, onOpenDrawer }) => (
 );
 
 const Payments = ({ invoices, stages, onOpenDrawer }) => {
-  const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    getPaymentHistory().then(setHistory).catch(console.error);
-  }, []);
-
-  const overdue = invoices.filter(i => i.dueType === 'late');
-  const soon = invoices.filter(i => i.dueType === 'soon');
+  const overdue = invoices.filter(i => i.dueType === 'late' && i.stageIdx < 6);
+  const soon = invoices.filter(i => i.dueType === 'soon' && i.stageIdx < 6);
   const paid = invoices.filter(i => i.stageIdx === 6);
   const unpaid = invoices.filter(i => i.stageIdx < 6);
+  const pending = invoices.filter(i => i.stageIdx >= 5 && i.stageIdx < 6);
   const overdueTotal = overdue.reduce((s, i) => s + parseAmount(i.total), 0);
   const soonTotal = soon.reduce((s, i) => s + parseAmount(i.total), 0);
   const unpaidTotal = unpaid.reduce((s, i) => s + parseAmount(i.total), 0);
@@ -53,20 +47,35 @@ const Payments = ({ invoices, stages, onOpenDrawer }) => {
         <div>
           <div className="pay-section">
             <div className="pay-sec-label"><h3>Overdue Payments</h3><span className="psl-count" style={{ background: 'var(--coral-lt)', color: 'var(--coral)' }}>{overdue.length}</span></div>
+            {overdue.length === 0 && <div style={{ padding: '16px', color: 'var(--ink4)', fontSize: '13px' }}>No overdue payments</div>}
             {overdue.map(i => <PayCard key={i.id} inv={i} stages={stages} onOpenDrawer={onOpenDrawer} />)}
           </div>
           <div className="pay-section">
             <div className="pay-sec-label"><h3>Due This Week</h3><span className="psl-count" style={{ background: 'var(--gold-lt)', color: 'var(--gold)' }}>{soon.length}</span></div>
+            {soon.length === 0 && <div style={{ padding: '16px', color: 'var(--ink4)', fontSize: '13px' }}>No payments due this week</div>}
             {soon.map(i => <PayCard key={i.id} inv={i} stages={stages} onOpenDrawer={onOpenDrawer} />)}
+          </div>
+          <div className="pay-section">
+            <div className="pay-sec-label"><h3>Awaiting Payment Release</h3><span className="psl-count" style={{ background: 'var(--s6l,#f3eeff)', color: 'var(--s6,#8b3fd4)' }}>{pending.length}</span></div>
+            {pending.length === 0 && <div style={{ padding: '16px', color: 'var(--ink4)', fontSize: '13px' }}>No pending payments</div>}
+            {pending.map(i => <PayCard key={i.id} inv={i} stages={stages} onOpenDrawer={onOpenDrawer} />)}
           </div>
         </div>
         <div>
-          <div className="section-hd" style={{ marginBottom: '12px' }}><div className="sh-left"><h2 style={{ fontSize: '15px' }}>Payment History</h2></div></div>
+          <div className="section-hd" style={{ marginBottom: '12px' }}><div className="sh-left"><h2 style={{ fontSize: '15px' }}>Payment History</h2><p style={{ fontSize: '11px' }}>{paid.length} payments completed</p></div></div>
           <div className="card"><table>
-            <thead><tr><th>Invoice</th><th>Supplier</th><th>Paid On</th><th style={{ textAlign: 'right' }}>Amount</th><th>Mode</th></tr></thead>
+            <thead><tr><th>Invoice</th><th>Supplier</th><th>Paid On</th><th style={{ textAlign: 'right' }}>Amount</th><th>Status</th></tr></thead>
             <tbody>
-              {history.map((p) => (
-                <tr key={p.id}><td className="td-mono" style={{ color: 'var(--coral)', fontSize: '11px' }}>{p.id}</td><td className="td-bold" style={{ fontSize: '12.5px' }}>{p.supplier}</td><td className="td-mono" style={{ fontSize: '11px' }}>{p.date}</td><td className="td-mono td-grn" style={{ textAlign: 'right' }}>{p.amount}</td><td><span className="pill" style={{ background: 'var(--teal-lt)', color: 'var(--teal)' }}>{p.mode}</span></td></tr>
+              {paid.length === 0 ? (
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'var(--ink4)' }}>No payments recorded yet</td></tr>
+              ) : paid.map(inv => (
+                <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)} style={{ cursor: 'pointer' }}>
+                  <td className="td-mono" style={{ color: '#3b6fd4', fontSize: '11px' }}>{inv.id}</td>
+                  <td className="td-bold" style={{ fontSize: '12.5px' }}>{inv.supplier}</td>
+                  <td className="td-mono" style={{ fontSize: '11px' }}>{inv.dates[6] || '—'}</td>
+                  <td className="td-mono td-grn" style={{ textAlign: 'right' }}>{inv.total}</td>
+                  <td><span className="pill" style={{ background: '#eef3ff', color: '#3b6fd4' }}>✓ Paid</span></td>
+                </tr>
               ))}
             </tbody>
           </table></div>

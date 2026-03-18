@@ -67,7 +67,7 @@ export const createUser = (data) => mutateApi('/users', 'POST', data);
 
 // UPDATE
 export const updateInvoice = (id, data) => mutateApi(`/invoices/${id}`, 'PUT', data);
-export const advanceInvoice = (id) => mutateApi(`/invoices/${id}/advance`, 'PUT', {});
+export const advanceInvoice = (id, userData = {}) => mutateApi(`/invoices/${id}/advance`, 'PUT', userData);
 export const updateUser = (id, data) => mutateApi(`/users/${id}`, 'PUT', data);
 export const updateCompany = (data) => mutateApi('/company', 'PUT', data);
 

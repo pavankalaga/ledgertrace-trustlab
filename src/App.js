@@ -120,6 +120,7 @@ function App() {
         onClose={closeDrawer}
         onShowToast={showToast}
         onRefresh={refreshData}
+        user={user}
       />
       <InvoiceModal
         isOpen={isModalOpen}

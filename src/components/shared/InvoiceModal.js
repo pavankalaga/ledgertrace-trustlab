@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createInvoice } from '../../api';
 
-const DEPARTMENTS = ['Procurement', 'Accounts Payable', 'Finance', 'Operations', 'Logistics', 'Information Technology', 'Management', 'HR', 'Admin'];
+const DEPARTMENTS = ['Procurement', 'Accounts Payable', 'Finance', 'Logistics', 'Information Technology', 'CSD', 'Facilities', 'Biomedical Operations',];
 
 const emptyForm = {
   supplier: '', gstin: '', invno: '', invdate: '', base: '', gstRate: '18',
@@ -36,6 +36,7 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh }) => {
         total: fmt(totalNum),
         desc: form.desc,
         dept: form.dept,
+        receivedBy: form.receivedBy,
         terms: form.terms,
         due: form.due,
       });
@@ -69,11 +70,24 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh }) => {
             <div className="ff"><label className="f-label">Supplier Invoice No. *</label><input className="f-input" placeholder="TSL/2025/00187" value={form.invno} onChange={set('invno')} /></div>
             <div className="ff"><label className="f-label">Invoice Date</label><input className="f-input" type="date" value={form.invdate} onChange={set('invdate')} /></div>
             <div className="ff"><label className="f-label">Amount (excl. GST) ₹</label><input className="f-input" placeholder="840000" value={form.base} onChange={set('base')} /></div>
-            <div className="ff"><label className="f-label">GST Rate</label><select className="f-input" value={form.gstRate} onChange={set('gstRate')}><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option></select></div>
+            <div className="ff"><label className="f-label">GST Rate</label><select className="f-input" value={form.gstRate} onChange={set('gstRate')}><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option></select></div>
             <div className="ff s2"><label className="f-label">Description</label><input className="f-input" placeholder="Brief description of goods or services" value={form.desc} onChange={set('desc')} /></div>
             <div className="fdivider"><hr /><span>Receipt &amp; Terms</span><hr /></div>
             <div className="ff"><label className="f-label">Date Received</label><input className="f-input" type="date" value={form.receivedDate} onChange={set('receivedDate')} /></div>
-            <div className="ff"><label className="f-label">Received By Dept.</label><select className="f-input" value={form.receivedBy} onChange={set('receivedBy')}><option>Procurement</option><option>Accounts Payable</option><option>Finance</option><option>Operations</option></select></div>
+            <div className="ff"><label className="f-label">Received By Dept.</label><select className="f-input" value={form.receivedBy} onChange={set('receivedBy')}>
+
+              <option>CMD</option>
+              <option>Procurement</option>
+              <option>Accounts Payable</option>
+              <option>Biomedical Operations</option>
+              <option>CSD</option>
+              <option>Information Technology</option>
+              <option>Logistics</option>
+              <option>Finance</option>
+              <option>Facilities</option>
+            </select>
+
+            </div>
             <div className="ff"><label className="f-label">Payment Terms</label><select className="f-input" value={form.terms} onChange={set('terms')}><option>Immediate</option><option>Net 15 Days</option><option>Net 30 Days</option><option>Net 45 Days</option><option>Net 60 Days</option></select></div>
             <div className="ff"><label className="f-label">Due Date</label><input className="f-input" type="date" value={form.due} onChange={set('due')} /></div>
           </div>

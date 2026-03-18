@@ -31,20 +31,31 @@ const ApprCard = ({ inv, stages, type, onShowToast, onRefresh }) => {
 };
 
 const ApprHistory = ({ invoices, onOpenDrawer }) => {
-  const approved = invoices.filter(i => i.stageIdx >= 3 && i.fin !== '—');
+  // Show all invoices that have passed the approval stages (stageIdx >= 4 means they've been approved)
+  const approved = invoices.filter(i => i.stageIdx >= 4);
   return (
     <div className="card"><table>
-      <thead><tr><th>Invoice</th><th>Supplier</th><th>Approved By</th><th>Type</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+      <thead><tr><th>Invoice</th><th>Supplier</th><th>Approved On</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
       <tbody>
-        {approved.map(inv => (
-          <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)}>
-            <td className="td-mono" style={{ color: 'var(--coral)' }}>{inv.id}</td>
-            <td className="td-bold">{inv.supplier}</td>
-            <td>{inv.fin.split('·')[0] || '—'}</td>
-            <td><span className="pill" style={{ background: inv.stageIdx >= 5 ? 'var(--teal-lt)' : 'var(--s4l)', color: inv.stageIdx >= 5 ? 'var(--teal)' : 'var(--s4)' }}>{inv.stageIdx >= 5 ? 'Payment Appr.' : 'Finance Appr.'}</span></td>
-            <td className="td-mono" style={{ textAlign: 'right' }}>{inv.total}</td>
-          </tr>
-        ))}
+        {approved.length === 0 ? (
+          <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'var(--ink4)' }}>No approved invoices yet</td></tr>
+        ) : approved.map(inv => {
+          const approvedDate = inv.dates[3] !== '—' ? inv.dates[3] : inv.dates[4] !== '—' ? inv.dates[4] : '—';
+          const isPaid = inv.stageIdx === 6;
+          const isPmtAuth = inv.stageIdx >= 5;
+          return (
+            <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)} style={{ cursor: 'pointer' }}>
+              <td className="td-mono" style={{ color: 'var(--coral)' }}>{inv.id}</td>
+              <td className="td-bold">{inv.supplier}</td>
+              <td className="td-mono" style={{ fontSize: '11px' }}>{approvedDate}</td>
+              <td><span className="pill" style={{
+                background: isPaid ? '#eef3ff' : isPmtAuth ? 'var(--teal-lt)' : 'var(--s4l)',
+                color: isPaid ? '#3b6fd4' : isPmtAuth ? 'var(--teal)' : 'var(--s4)'
+              }}>{isPaid ? '✓ Paid' : isPmtAuth ? 'Payment Auth' : 'Approved'}</span></td>
+              <td className="td-mono" style={{ textAlign: 'right' }}>{inv.total}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table></div>
   );
