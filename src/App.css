@@ -164,18 +164,18 @@ tbody tr:hover td{background:var(--bg)}
 .fdivider span{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink4);letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
 .pipeline-wrap{background:var(--white);border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin-bottom:24px}
 .sl-outer{overflow-x:auto}
-.sl-grid{display:grid;grid-template-columns:190px repeat(7,1fr);min-width:1080px}
+.sl-grid{display:grid;grid-template-columns:170px repeat(8,minmax(100px,1fr));min-width:1100px}
 .sl-header-row{border-bottom:2px solid var(--ink)}
-.ph-info{padding:12px 14px;border-right:1px solid var(--rule)}
-.ph-cell{padding:12px 14px;border-right:1px solid var(--rule)}
+.ph-info{padding:10px 10px;border-right:1px solid var(--rule)}
+.ph-cell{padding:10px 8px;border-right:1px solid var(--rule)}
 .ph-cell:last-child{border-right:none}
 .ph-num{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink4);letter-spacing:1px;margin-bottom:4px}
 .ph-il{display:flex;align-items:center;gap:6px}
 .ph-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.ph-lbl{font-size:11px;font-weight:700;letter-spacing:-.2px}
-.ph-cnt{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;margin-top:5px}
+.ph-lbl{font-size:10px;font-weight:700;letter-spacing:-.2px}
+.ph-cnt{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:500;margin-top:4px}
 .ph-sub{font-family:'Crimson Pro',serif;font-size:10.5px;color:var(--ink4)}
-.sl-row{display:grid;grid-template-columns:190px repeat(7,1fr);border-top:1px solid var(--rule2);transition:background .12s;cursor:pointer;min-width:1080px}
+.sl-row{display:grid;grid-template-columns:170px repeat(8,minmax(100px,1fr));border-top:1px solid var(--rule2);transition:background .12s;cursor:pointer;min-width:1100px}
 .sl-row:hover{background:#fafbfc}
 .sl-info{padding:12px 14px;border-right:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center}
 .sl-invid{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--coral);margin-bottom:2px}

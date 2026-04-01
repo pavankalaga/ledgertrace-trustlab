@@ -90,7 +90,7 @@ const advanceStage = async (req, res) => {
     // Role-based check: CMD/Administrator can advance any stage, others only their own
     const userRole = req.body.userRole || '';
     const userDept = req.body.userDept || '';
-    const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userDept === 'CMD' || userDept === 'Management';
+    const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userRole === 'admin' || userDept === 'CMD' || userDept === 'Management';
 
     if (!isCMD) {
       const allowedStages = deptCanAdvanceFrom[userDept] || [];

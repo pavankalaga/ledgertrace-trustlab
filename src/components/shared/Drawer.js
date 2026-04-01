@@ -9,7 +9,7 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
   // Role-based: determine if current user can advance from current stage
   const userRole = user?.role || '';
   const userDept = user?.dept || '';
-  const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userDept === 'CMD' || userDept === 'Management';
+  const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userRole === 'admin' || userDept === 'CMD' || userDept === 'Management';
 
   const deptCanAdvanceFrom = {
     'Procurement': [0, 1],
