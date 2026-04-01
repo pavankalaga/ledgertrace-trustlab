@@ -33,7 +33,7 @@ const Reports = ({ invoices = [], stages = [] }) => {
   const totalCount = stageCounts.reduce((sum, c) => sum + c, 0) || 1;
 
   const totalInvoiced = invoices.reduce((s, i) => s + parseAmount(i.total), 0);
-  const paidInvs = invoices.filter(i => i.stageIdx === 6);
+  const paidInvs = invoices.filter(i => i.stageIdx === 7);
   const totalPaid = paidInvs.reduce((s, i) => s + parseAmount(i.total), 0);
   const paymentRate = totalInvoiced ? ((totalPaid / totalInvoiced) * 100).toFixed(1) : 0;
   const avgValue = invoices.length ? Math.round(totalInvoiced / invoices.length) : 0;
@@ -56,7 +56,7 @@ const Reports = ({ invoices = [], stages = [] }) => {
   };
   const doughnutData = {
     labels: stages.map(s => s.label),
-    datasets: [{ data: stageCounts, backgroundColor: ['#edf2fc', '#f3eeff', '#e6f6f4', '#fdf5e6', '#f3eef9', '#fef0f0', '#eaf4ee'], borderColor: ['#3b6fd4', '#8b3fd4', '#0a7c6e', '#c07b00', '#6d3fa0', '#e84040', '#2e7d52'], borderWidth: 2 }],
+    datasets: [{ data: stageCounts, backgroundColor: ['#edf2fc', '#f3eeff', '#e6f6f4', '#fdf5e6', '#f3eef9', '#fef0f0', '#eaf4ee', '#e8f4ff'], borderColor: ['#3b6fd4', '#8b3fd4', '#0a7c6e', '#c07b00', '#6d3fa0', '#e84040', '#2e7d52', '#1a4fa0'], borderWidth: 2 }],
   };
 
   return (

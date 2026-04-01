@@ -19,9 +19,9 @@ const Dashboard = ({ invoices, stages, activities, onOpenDrawer }) => {
 
   if (!invoices.length || !stages.length) return <div className="empty"><p>Loading…</p></div>;
 
-  const unpaid = invoices.filter(i => i.stageIdx < 6);
+  const unpaid = invoices.filter(i => i.stageIdx < 7);
   const overdue = invoices.filter(i => i.dueType === 'late');
-  const paid = invoices.filter(i => i.stageIdx === 6);
+  const paid = invoices.filter(i => i.stageIdx === 7);
   const outstandingTotal = unpaid.reduce((sum, i) => sum + parseAmount(i.total), 0);
   const paidTotal = paid.reduce((sum, i) => sum + parseAmount(i.total), 0);
   const overdueTotal = overdue.reduce((sum, i) => sum + parseAmount(i.total), 0);

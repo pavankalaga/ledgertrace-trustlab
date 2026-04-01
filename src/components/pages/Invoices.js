@@ -83,8 +83,8 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
       if (invDate > to) return false;
     }
     // Status filter
-    if (filter === 'active' && inv.stageIdx === 6) return false;
-    if (filter === 'paid' && inv.stageIdx !== 6) return false;
+    if (filter === 'active' && inv.stageIdx === 7) return false;
+    if (filter === 'paid' && inv.stageIdx !== 7) return false;
     if (filter === 'overdue' && inv.dueType !== 'late') return false;
     // Stage filter
     if (stage !== 'all' && stages[inv.stageIdx] && stages[inv.stageIdx].id !== stage) return false;

@@ -31,8 +31,8 @@ const ApprCard = ({ inv, stages, type, onShowToast, onRefresh }) => {
 };
 
 const ApprHistory = ({ invoices, onOpenDrawer }) => {
-  // Show all invoices that have passed the approval stages (stageIdx >= 4 means they've been approved)
-  const approved = invoices.filter(i => i.stageIdx >= 4);
+  // Show all invoices that have passed the approval stages (stageIdx >= 5 means they've been approved)
+  const approved = invoices.filter(i => i.stageIdx >= 5);
   return (
     <div className="card"><table>
       <thead><tr><th>Invoice</th><th>Supplier</th><th>Approved On</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
@@ -40,9 +40,9 @@ const ApprHistory = ({ invoices, onOpenDrawer }) => {
         {approved.length === 0 ? (
           <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'var(--ink4)' }}>No approved invoices yet</td></tr>
         ) : approved.map(inv => {
-          const approvedDate = inv.dates[3] !== '—' ? inv.dates[3] : inv.dates[4] !== '—' ? inv.dates[4] : '—';
-          const isPaid = inv.stageIdx === 6;
-          const isPmtAuth = inv.stageIdx >= 5;
+          const approvedDate = inv.dates[4] !== '—' ? inv.dates[4] : inv.dates[3] !== '—' ? inv.dates[3] : '—';
+          const isPaid = inv.stageIdx === 7;
+          const isPmtAuth = inv.stageIdx >= 6;
           return (
             <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)} style={{ cursor: 'pointer' }}>
               <td className="td-mono" style={{ color: 'var(--coral)' }}>{inv.id}</td>
@@ -64,15 +64,17 @@ const ApprHistory = ({ invoices, onOpenDrawer }) => {
 const Approvals = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) => {
   const [activeTab, setActiveTab] = useState('fin');
 
-  // Dynamic lists based on invoice stage
-  const finList = invoices.filter(i => i.stageIdx === 2 || i.stageIdx === 3);
-  const cmdList = invoices.filter(i => i.stageIdx === 4);
-  const pmtList = invoices.filter(i => i.stageIdx === 5);
+  // Dynamic lists based on invoice stage (8-stage flow)
+  // Stage 3: Finance/CMD Approval, Stage 4: Tally ERP Entry (Finance handles both)
+  // Stage 5: Payment Approval, Stage 6: Payment Released (CMD handles)
+  const finList = invoices.filter(i => i.stageIdx === 3 || i.stageIdx === 4);
+  const cmdList = invoices.filter(i => i.stageIdx === 5);
+  const pmtList = invoices.filter(i => i.stageIdx === 6);
 
   const tabs = [
     { key: 'fin', label: `Finance Approval (${finList.length})` },
-    { key: 'cmd', label: `CMD Approval (${cmdList.length})` },
-    { key: 'pymt', label: `Payment Auth (${pmtList.length})` },
+    { key: 'cmd', label: `Payment Auth (${cmdList.length})` },
+    { key: 'pymt', label: `Payment Release (${pmtList.length})` },
     { key: 'history', label: 'History' },
   ];
 

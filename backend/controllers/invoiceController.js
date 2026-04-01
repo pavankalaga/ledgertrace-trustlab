@@ -1,6 +1,9 @@
 const Invoice = require('../models/Invoice');
 
 // Map "Received By" department to starting stage index
+// Stage 0: Invoice Received, 1: Dept Justification, 2: AP Verification,
+// 3: Finance/CMD Approval, 4: Tally ERP Entry, 5: Payment Approval,
+// 6: Payment Released, 7: Paid
 const deptToStageIdx = {
   'CMD': 3,
   'Procurement': 1,
@@ -13,7 +16,16 @@ const deptToStageIdx = {
   'Facilities': 1,
 };
 
-const actions = ['Route to Procurement', 'Send to Accounts Payable', 'Finance/CMD Approval Required', 'Enter in Tally ERP', 'CMD Payment Authorisation', 'Release Payment', 'Completed'];
+const actions = [
+  'Route to Department',           // from stage 0
+  'Send to Accounts Payable',      // from stage 1
+  'Finance/CMD Approval Required', // from stage 2
+  'Enter in Tally ERP',            // from stage 3
+  'Request Payment Approval',      // from stage 4
+  'Release Payment',               // from stage 5
+  'Mark as Paid',                  // from stage 6
+  'Completed',                     // from stage 7
+];
 
 // POST /api/invoices — create a new invoice
 const create = async (req, res) => {
@@ -27,7 +39,7 @@ const create = async (req, res) => {
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
     // Fill dates for all completed stages up to the starting stage
-    const dates = ['—', '—', '—', '—', '—', '—', '—'];
+    const dates = ['—', '—', '—', '—', '—', '—', '—', '—'];
     for (let i = 0; i <= startStageIdx; i++) {
       dates[i] = today;
     }
@@ -63,9 +75,9 @@ const update = async (req, res) => {
 
 // Map user department/role to which stageIdx they can advance FROM
 const deptCanAdvanceFrom = {
-  'Procurement': [0, 1],        // Can advance from Received(0) and Procurement(1)
-  'Accounts Payable': [2],      // Can advance from Accounts Payable(2)
-  'Finance': [3, 4],            // Can advance from Finance/CMD(3) and Tally(4)
+  'Procurement': [0, 1],        // Can advance from Invoice Received(0) and Dept Justification(1)
+  'Accounts Payable': [2],      // Can advance from AP Verification(2)
+  'Finance': [3, 4],            // Can advance from Finance/CMD Approval(3) and Tally Entry(4)
 };
 
 // PUT /api/invoices/:id/advance — move invoice to next stage
@@ -73,7 +85,7 @@ const advanceStage = async (req, res) => {
   try {
     const invoice = await Invoice.findOne({ id: req.params.id });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-    if (invoice.stageIdx >= 6) return res.status(400).json({ error: 'Invoice already completed' });
+    if (invoice.stageIdx >= 7) return res.status(400).json({ error: 'Invoice already completed' });
 
     // Role-based check: CMD/Administrator can advance any stage, others only their own
     const userRole = req.body.userRole || '';

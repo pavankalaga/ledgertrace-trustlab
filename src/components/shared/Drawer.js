@@ -4,7 +4,7 @@ import { advanceInvoice } from '../../api';
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user }) => {
   if (!invoice || !stages.length) return null;
 
-  const stageNames = ['Invoice Received', 'Procurement Review', 'Accounts Payable', 'Finance/CMD Approval', 'Tally ERP Entry', 'Payment Authorisation', 'Payment Made'];
+  const stageNames = ['Invoice Received', 'Dept Justification', 'AP Verification', 'Finance/CMD Approval', 'Tally ERP Entry', 'Payment Approval', 'Payment Released', 'Paid'];
 
   // Role-based: determine if current user can advance from current stage
   const userRole = user?.role || '';
@@ -19,18 +19,19 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
 
   const allowedStages = deptCanAdvanceFrom[userDept] || [];
   const canAdvance = isCMD || allowedStages.includes(invoice.stageIdx);
-  const isCompleted = invoice.stageIdx >= 6;
+  const isCompleted = invoice.stageIdx >= 7;
 
   const getDetail = (i, d) => {
     if (d === '—') return 'Pending';
     switch (i) {
-      case 0: return <><em>{d}</em> · Received by Procurement Dept.</>;
-      case 1: return <><em>{d}</em> · Procurement review &amp; PO match</>;
-      case 2: return <><em>{d}</em> · Passed to AP Desk</>;
-      case 3: return <><em>{d}</em> · {invoice.fin}</>;
+      case 0: return <><em>{d}</em> · Invoice received</>;
+      case 1: return <><em>{d}</em> · Department justification review</>;
+      case 2: return <><em>{d}</em> · Accounts Payable verification</>;
+      case 3: return <><em>{d}</em> · {invoice.fin || 'Finance/CMD approval'}</>;
       case 4: return <><em>{d}</em> · Entered in Tally ERP</>;
-      case 5: return <><em>{d}</em> · {invoice.pmtauth}</>;
-      case 6: return <><em>{d}</em> · {invoice.pmtmode} · UTR: {invoice.utr}</>;
+      case 5: return <><em>{d}</em> · Payment approval requested</>;
+      case 6: return <><em>{d}</em> · Payment release approved</>;
+      case 7: return <><em>{d}</em> · {invoice.pmtmode || '—'} · UTR: {invoice.utr || '—'}</>;
       default: return 'Pending';
     }
   };
@@ -80,10 +81,10 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
             {stageNames.map((name, i) => {
               const done = i < invoice.stageIdx;
               const active = i === invoice.stageIdx;
-              const isLastDone = done && i === 5 && invoice.stageIdx === 6;
-              const isFullyPaid = isCompleted && i === 6;
+              const isLastDone = done && i === 6 && invoice.stageIdx === 7;
+              const isFullyPaid = isCompleted && i === 7;
 
-              // Blue for last 2 stages when completed (Payment Auth + Paid)
+              // Blue for last 2 stages when completed (Payment Released + Paid)
               const cls = (isLastDone || isFullyPaid)
                 ? 'lc-done lc-blue'
                 : done ? 'lc-done'
@@ -98,7 +99,7 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
                 <div className={`lc-item ${cls}`} key={i}>
                   <div className="lc-left">
                     <div className="lc-node" style={iconStyle}>{icon}</div>
-                    {i < 6 && <div className="lc-stem" />}
+                    {i < 7 && <div className="lc-stem" />}
                   </div>
                   <div className="lc-right">
                     <div className="lc-sname">{name}</div>

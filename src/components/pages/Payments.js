@@ -25,11 +25,11 @@ const PayCard = ({ inv, stages, onOpenDrawer }) => (
 );
 
 const Payments = ({ invoices, stages, onOpenDrawer }) => {
-  const overdue = invoices.filter(i => i.dueType === 'late' && i.stageIdx < 6);
-  const soon = invoices.filter(i => i.dueType === 'soon' && i.stageIdx < 6);
-  const paid = invoices.filter(i => i.stageIdx === 6);
-  const unpaid = invoices.filter(i => i.stageIdx < 6);
-  const pending = invoices.filter(i => i.stageIdx >= 5 && i.stageIdx < 6);
+  const overdue = invoices.filter(i => i.dueType === 'late' && i.stageIdx < 7);
+  const soon = invoices.filter(i => i.dueType === 'soon' && i.stageIdx < 7);
+  const paid = invoices.filter(i => i.stageIdx === 7);
+  const unpaid = invoices.filter(i => i.stageIdx < 7);
+  const pending = invoices.filter(i => i.stageIdx >= 5 && i.stageIdx < 7);
   const overdueTotal = overdue.reduce((s, i) => s + parseAmount(i.total), 0);
   const soonTotal = soon.reduce((s, i) => s + parseAmount(i.total), 0);
   const unpaidTotal = unpaid.reduce((s, i) => s + parseAmount(i.total), 0);
@@ -72,7 +72,7 @@ const Payments = ({ invoices, stages, onOpenDrawer }) => {
                 <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)} style={{ cursor: 'pointer' }}>
                   <td className="td-mono" style={{ color: '#3b6fd4', fontSize: '11px' }}>{inv.id}</td>
                   <td className="td-bold" style={{ fontSize: '12.5px' }}>{inv.supplier}</td>
-                  <td className="td-mono" style={{ fontSize: '11px' }}>{inv.dates[6] || '—'}</td>
+                  <td className="td-mono" style={{ fontSize: '11px' }}>{inv.dates[7] || '—'}</td>
                   <td className="td-mono td-grn" style={{ textAlign: 'right' }}>{inv.total}</td>
                   <td><span className="pill" style={{ background: '#eef3ff', color: '#3b6fd4' }}>✓ Paid</span></td>
                 </tr>
