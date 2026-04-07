@@ -16,6 +16,7 @@ const invoiceSchema = new mongoose.Schema({
   tdsPct:      String,
   tdsAmt:      String,
   netPayable:  String,
+  tdsRows:     { type: [{ section: String, tdsPct: String, gross: String, tdsAmt: String }], default: [] },
   terms:       String,
   invdate:     String,
   due:         String,

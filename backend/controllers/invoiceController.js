@@ -44,24 +44,31 @@ const create = async (req, res) => {
       dates[i] = today;
     }
 
-    // TDS calculation
-    const tdsPct = Number(req.body.tdsPct) || 0;
-    const fmt = (n) => n ? '₹' + n.toLocaleString('en-IN') : '₹0';
-    let tdsAmt = '—';
-    let netPayable = req.body.total || '—';
-    if (tdsPct > 0 && req.body.base) {
-      const baseNum = Number((req.body.base || '').replace(/[₹,]/g, '')) || 0;
-      const tdsAmtNum = Math.round(baseNum * (tdsPct / 100));
-      const totalNum = Number((req.body.total || '').replace(/[₹,]/g, '')) || 0;
-      tdsAmt = fmt(tdsAmtNum);
-      netPayable = fmt(totalNum - tdsAmtNum);
-    }
+    // TDS calculation from multi-row tdsRows
+    const fmtN = (n) => n ? '₹' + n.toLocaleString('en-IN') : '₹0';
+    const tdsRows = Array.isArray(req.body.tdsRows) ? req.body.tdsRows : [];
+    const totalTdsNum = tdsRows.reduce((sum, row) => {
+      const gross = Number((row.gross || '').replace(/[₹,]/g, '')) || 0;
+      const pct = Number(row.tdsPct) || 0;
+      return sum + Math.round(gross * pct / 100);
+    }, 0);
+    const invoiceTotalNum = Number((req.body.total || '').replace(/[₹,]/g, '')) || 0;
+    const tdsAmt = totalTdsNum > 0 ? fmtN(totalTdsNum) : '—';
+    const netPayable = totalTdsNum > 0 ? fmtN(invoiceTotalNum - totalTdsNum) : fmtN(invoiceTotalNum);
+
+    // Annotate each row with its computed tdsAmt
+    const savedRows = tdsRows.map(row => {
+      const gross = Number((row.gross || '').replace(/[₹,]/g, '')) || 0;
+      const pct = Number(row.tdsPct) || 0;
+      return { ...row, tdsAmt: fmtN(Math.round(gross * pct / 100)) };
+    });
 
     const invoice = await Invoice.create({
       ...req.body,
       id,
       stageIdx: startStageIdx,
       dates,
+      tdsRows: savedRows,
       tdsAmt,
       netPayable,
       fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',

@@ -81,8 +81,34 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
               <div><div className="i-key">Base Amount</div><div className="i-val mono">{invoice.base}</div></div>
               <div><div className="i-key">GST Amount</div><div className="i-val mono">{invoice.gst}</div></div>
               <div style={{ gridColumn: '1/-1' }}><div className="i-key">Invoice Total (Base + GST)</div><div className="i-val big">{invoice.total}</div></div>
-              {invoice.tdsPct && invoice.tdsPct !== '0' && (<>
-                <div><div className="i-key" style={{ color: 'var(--coral)' }}>TDS Deducted ({invoice.tdsPct}% on base)</div><div className="i-val mono" style={{ color: 'var(--coral)' }}>− {invoice.tdsAmt}</div></div>
+              {invoice.tdsRows && invoice.tdsRows.length > 0 && (<>
+                <div style={{ gridColumn: '1/-1' }}>
+                  <div className="i-key" style={{ color: 'var(--coral)', marginBottom: 6 }}>TDS Deductions</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--rule)' }}>
+                        <th style={{ padding: '4px 6px', textAlign: 'left', fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'var(--ink4)', letterSpacing: '0.5px' }}>SECTION</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'var(--ink4)', letterSpacing: '0.5px' }}>TDS%</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'var(--ink4)', letterSpacing: '0.5px' }}>GROSS</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'var(--coral)', letterSpacing: '0.5px' }}>TDS AMT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoice.tdsRows.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--rule2)' }}>
+                          <td style={{ padding: '5px 6px', fontSize: 11 }}>{row.section}</td>
+                          <td style={{ padding: '5px 6px', fontFamily: "'JetBrains Mono',monospace", textAlign: 'right' }}>{row.tdsPct}%</td>
+                          <td style={{ padding: '5px 6px', fontFamily: "'JetBrains Mono',monospace", textAlign: 'right' }}>{row.gross}</td>
+                          <td style={{ padding: '5px 6px', fontFamily: "'JetBrains Mono',monospace", textAlign: 'right', color: 'var(--coral)', fontWeight: 600 }}>{row.tdsAmt}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ borderTop: '2px solid var(--rule)' }}>
+                        <td colSpan={3} style={{ padding: '5px 6px', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: 'var(--ink4)' }}>TOTAL TDS</td>
+                        <td style={{ padding: '5px 6px', fontFamily: "'JetBrains Mono',monospace", textAlign: 'right', color: 'var(--coral)', fontWeight: 700 }}>{invoice.tdsAmt}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <div><div className="i-key" style={{ color: 'var(--teal)' }}>Net Payable to Vendor</div><div className="i-val big" style={{ color: 'var(--teal)' }}>{invoice.netPayable}</div></div>
               </>)}
               <div><div className="i-key">Payment Terms</div><div className="i-val">{invoice.terms}</div></div>
