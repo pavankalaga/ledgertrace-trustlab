@@ -1,7 +1,7 @@
 import React from 'react';
 import { advanceInvoice } from '../../api';
 
-const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user }) => {
+const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
   if (!invoice || !stages.length) return null;
 
   const stageNames = ['Invoice Received', 'Dept Justification', 'AP Verification', 'Finance/CMD Approval', 'Tally ERP Entry', 'Payment Approval', 'Payment Released', 'Paid'];
@@ -20,6 +20,16 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
   const allowedStages = deptCanAdvanceFrom[userDept] || [];
   const canAdvance = isCMD || allowedStages.includes(invoice.stageIdx);
   const isCompleted = invoice.stageIdx >= 7;
+
+  // Edit permission:
+  // Stage 0-2: Accounts Payable dept OR admin can edit
+  // Stage 3 (Finance/CMD Approval): admin only
+  // Stage 4+: no one can edit
+  const isAccountant = userDept === 'Accounts Payable';
+  const canEdit =
+    invoice.stageIdx <= 2 ? (isCMD || isAccountant) :
+    invoice.stageIdx === 3 ? isCMD :
+    false;
 
   const getDetail = (i, d) => {
     if (d === '—') return 'Pending';
@@ -70,7 +80,11 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
               <div><div className="i-key">Invoice Date</div><div className="i-val">{invoice.invdate}</div></div>
               <div><div className="i-key">Base Amount</div><div className="i-val mono">{invoice.base}</div></div>
               <div><div className="i-key">GST Amount</div><div className="i-val mono">{invoice.gst}</div></div>
-              <div style={{ gridColumn: '1/-1' }}><div className="i-key">Total Payable</div><div className="i-val big">{invoice.total}</div></div>
+              <div style={{ gridColumn: '1/-1' }}><div className="i-key">Invoice Total (Base + GST)</div><div className="i-val big">{invoice.total}</div></div>
+              {invoice.tdsPct && invoice.tdsPct !== '0' && (<>
+                <div><div className="i-key" style={{ color: 'var(--coral)' }}>TDS Deducted ({invoice.tdsPct}% on base)</div><div className="i-val mono" style={{ color: 'var(--coral)' }}>− {invoice.tdsAmt}</div></div>
+                <div><div className="i-key" style={{ color: 'var(--teal)' }}>Net Payable to Vendor</div><div className="i-val big" style={{ color: 'var(--teal)' }}>{invoice.netPayable}</div></div>
+              </>)}
               <div><div className="i-key">Payment Terms</div><div className="i-val">{invoice.terms}</div></div>
               <div><div className="i-key">Due Date</div><div className="i-val" style={{ color: invoice.dueType === 'late' ? 'var(--coral)' : invoice.dueType === 'soon' ? 'var(--gold)' : 'var(--ink)' }}>{invoice.due}</div></div>
               <div style={{ gridColumn: '1/-1' }}><div className="i-key">Description</div><div className="i-val" style={{ fontFamily: "'Crimson Pro',serif", fontSize: '14px', fontWeight: 400 }}>{invoice.desc}</div></div>
@@ -121,6 +135,12 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, user
           </div>
         </div>
         <div className="drawer-ft">
+          {canEdit && (
+            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center', color: 'var(--s1)' }}
+              onClick={() => { onClose(); onOpenEdit(invoice.id); }}>
+              ✎ Edit
+            </button>
+          )}
           <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>Documents</button>
           <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>Print</button>
           {isCompleted ? (

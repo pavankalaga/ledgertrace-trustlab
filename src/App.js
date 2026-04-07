@@ -31,6 +31,7 @@ function App() {
   const [drawerInvoice, setDrawerInvoice] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editInvoice, setEditInvoice] = useState(null); // null = create mode, invoice obj = edit mode
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -63,6 +64,14 @@ function App() {
       setIsDrawerOpen(true);
     } else {
       console.log('Drawer: invoice not found for', invoiceId, 'in', invoices.length, 'invoices');
+    }
+  }, [invoices]);
+
+  const openEditModal = useCallback((invoiceId) => {
+    const inv = invoices.find(i => i.id === invoiceId || i._id === invoiceId);
+    if (inv) {
+      setEditInvoice(inv);
+      setIsModalOpen(true);
     }
   }, [invoices]);
 
@@ -120,13 +129,15 @@ function App() {
         onClose={closeDrawer}
         onShowToast={showToast}
         onRefresh={refreshData}
+        onOpenEdit={openEditModal}
         user={user}
       />
       <InvoiceModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setEditInvoice(null); }}
         onShowToast={showToast}
         onRefresh={refreshData}
+        invoice={editInvoice}
       />
       <Toast message={toastMessage} isVisible={toastVisible} onHide={hideToast} />
     </>

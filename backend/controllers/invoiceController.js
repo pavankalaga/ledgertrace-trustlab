@@ -44,14 +44,29 @@ const create = async (req, res) => {
       dates[i] = today;
     }
 
+    // TDS calculation
+    const tdsPct = Number(req.body.tdsPct) || 0;
+    const fmt = (n) => n ? '₹' + n.toLocaleString('en-IN') : '₹0';
+    let tdsAmt = '—';
+    let netPayable = req.body.total || '—';
+    if (tdsPct > 0 && req.body.base) {
+      const baseNum = Number((req.body.base || '').replace(/[₹,]/g, '')) || 0;
+      const tdsAmtNum = Math.round(baseNum * (tdsPct / 100));
+      const totalNum = Number((req.body.total || '').replace(/[₹,]/g, '')) || 0;
+      tdsAmt = fmt(tdsAmtNum);
+      netPayable = fmt(totalNum - tdsAmtNum);
+    }
+
     const invoice = await Invoice.create({
       ...req.body,
       id,
       stageIdx: startStageIdx,
       dates,
+      tdsAmt,
+      netPayable,
       fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
       urgency: 'normal',
-      nextAction: actions[startStageIdx] || 'Route to Procurement',
+      nextAction: actions[startStageIdx] || 'Route to Department',
       dueType: 'ok',
     });
     res.status(201).json(invoice);
