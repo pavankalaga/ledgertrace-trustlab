@@ -103,31 +103,43 @@ function transformToInvoices(grnItems) {
         grnDate: item.GRNReceiveDate,
         category: item.CategoryType,
         subCategory: item.SubCategoryType,
-        baseTotal: 0, gstTotal: 0, stockTotal: 0,
+        stockTotal: 0, baseTotal: 0, gstTotal: 0,
       };
     }
-    const qty = parseFloat(item.GRNQty) || 0;
-    grouped[key].baseTotal += (parseFloat(item['Gross Total(Rate)']) || 0) * qty;
-    grouped[key].gstTotal += (parseFloat(item.TaxAmount) || 0) * qty;
-    grouped[key].stockTotal += parseFloat(item.Stockvalue) || 0;
+    // Stockvalue is the real line total (includes tax, accounts for pack size).
+    // Derive base and GST from Stockvalue + TaxPer to keep base + gst = total.
+    const stockVal = parseFloat(item.Stockvalue) || 0;
+    const taxPer   = parseFloat(item.TaxPer) || 0;
+    const baseVal  = taxPer > 0 ? stockVal / (1 + taxPer / 100) : stockVal;
+    const gstVal   = stockVal - baseVal;
+
+    grouped[key].stockTotal += stockVal;
+    grouped[key].baseTotal  += baseVal;
+    grouped[key].gstTotal   += gstVal;
   });
 
   return Object.values(grouped).map(inv => ({
-    invno: inv.invno,
-    supplier: inv.supplier,
-    base: formatINR(inv.baseTotal),
-    gst: formatINR(inv.gstTotal),
-    total: formatINR(inv.stockTotal),
-    invdate: inv.invdate,
-    due: addDays(inv.grnDate, 30),
-    dueType: 'ok',
-    desc: `${inv.category} — ${inv.subCategory}`,
-    terms: inv.poNo || 'Net 30',
-    stageIdx: 0,
-    dates: [inv.invdate, '—', '—', '—', '—', '—', '—', '—'],
+    invno:      inv.invno,
+    supplier:   inv.supplier,
+    base:       formatINR(inv.baseTotal),
+    gst:        formatINR(inv.gstTotal),
+    total:      formatINR(inv.stockTotal),
+    gstRate:    '18',
+    invdate:    inv.invdate,
+    due:        addDays(inv.grnDate, 30),
+    dueType:    'ok',
+    desc:       `${inv.category} — ${inv.subCategory}`,
+    terms:      inv.poNo || 'Net 30',
+    dept:       'Procurement',
+    receivedBy: 'Procurement',
+    stageIdx:   0,
+    dates:      [inv.invdate, '—', '—', '—', '—', '—', '—', '—'],
     fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
-    urgency: 'normal',
+    urgency:    'normal',
     nextAction: 'Route to Department',
+    tdsRows:    [],
+    tdsAmt:     '—',
+    netPayable: formatINR(inv.stockTotal),
   }));
 }
 
