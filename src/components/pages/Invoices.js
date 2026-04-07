@@ -111,10 +111,10 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
     setSyncing(true);
     try {
       const result = await syncGRN(dateFrom, dateTo);
-      if (result.invoicesCreated === 0 && result.skippedMonths > 0) {
-        onShowToast(`Already synced. ${result.skippedMonths} month(s) up to date, ${result.invoicesSkipped || 0} invoices unchanged.`);
+      if (result.invoicesCreated === 0) {
+        onShowToast(`No new invoices found. ${result.invoicesSkipped || 0} already exist (unchanged), ${result.monthsFetched || 0} month(s) checked.`);
       } else {
-        onShowToast(`Synced ${result.invoicesCreated} new invoices, ${result.suppliersCreated} new suppliers. ${result.skippedMonths || 0} month(s) already up to date.`);
+        onShowToast(`Synced ${result.invoicesCreated} new invoice(s), ${result.suppliersCreated} new supplier(s). ${result.invoicesSkipped || 0} existing invoices unchanged.`);
       }
       onRefresh();
     } catch (err) {

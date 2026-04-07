@@ -124,10 +124,10 @@ function transformToInvoices(grnItems) {
     desc: `${inv.category} — ${inv.subCategory}`,
     terms: inv.poNo || 'Net 30',
     stageIdx: 0,
-    dates: [inv.invdate, '', '', '', '', '', ''],
+    dates: [inv.invdate, '—', '—', '—', '—', '—', '—', '—'],
     fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
     urgency: 'normal',
-    nextAction: 'Route to Procurement',
+    nextAction: 'Route to Department',
   }));
 }
 
@@ -157,49 +157,26 @@ function transformToSuppliers(grnItems) {
   }));
 }
 
-// ── Main sync: monthly chunks, skip already-synced, preserve modified invoices ──
+// ── Main sync: fetch all months in range, insert only new invnos ──
+// SyncLog is updated for tracking but never used to skip months.
+// This ensures newly added GCP records in previously-synced months are picked up.
 
 async function syncGRNData(fromDate, toDate) {
   const chunks = getMonthlyChunks(fromDate, toDate);
 
-  // If DB has no invoices at all, clear stale sync logs (user wiped the DB)
-  const invoiceCount = await Invoice.countDocuments();
-  if (invoiceCount === 0) {
-    await SyncLog.deleteMany({});
-    console.log('  DB is empty — cleared stale sync logs');
-  }
-
-  // Check which months are already synced
-  const syncedMonths = await SyncLog.find({
-    month: { $in: chunks.map(c => c.monthKey) }
-  }).then(logs => new Set(logs.map(l => l.month)));
-
-  const unsyncedChunks = chunks.filter(c => !syncedMonths.has(c.monthKey));
-
-  if (unsyncedChunks.length === 0) {
-    return {
-      message: 'All months in this range are already synced',
-      totalGRNItems: 0,
-      invoicesCreated: 0,
-      suppliersCreated: 0,
-      skippedMonths: chunks.length,
-      newMonths: 0,
-    };
-  }
-
-  console.log(`Syncing ${unsyncedChunks.length} new month(s), skipping ${syncedMonths.size} already-synced`);
+  console.log(`Syncing ${chunks.length} month(s) in range ${fromDate} → ${toDate}`);
 
   let allGRNItems = [];
   const errors = [];
 
-  // Fetch each unsynced month one by one (avoids API timeout)
-  for (const chunk of unsyncedChunks) {
+  // Fetch every month in the selected range (no month-level skipping)
+  for (const chunk of chunks) {
     try {
       console.log(`  Fetching ${chunk.monthKey}: ${chunk.from} → ${chunk.to}`);
       const items = await fetchGRNData(chunk.from, chunk.to);
       allGRNItems = allGRNItems.concat(items);
 
-      // Mark this month as synced
+      // Update sync log for tracking (not used to block future syncs)
       await SyncLog.findOneAndUpdate(
         { month: chunk.monthKey },
         { month: chunk.monthKey, syncedAt: new Date(), itemCount: items.length },
@@ -269,8 +246,7 @@ async function syncGRNData(fromDate, toDate) {
     suppliersCreated,
     invoicesTotal: invoices.length,
     suppliersTotal: suppliers.length,
-    newMonths: unsyncedChunks.length,
-    skippedMonths: syncedMonths.size,
+    monthsFetched: chunks.length,
     errors: errors.length ? errors : undefined,
   };
 }
