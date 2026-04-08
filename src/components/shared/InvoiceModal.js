@@ -13,6 +13,7 @@ const TDS_RATES = ['0', '1', '2', '10'];
 
 const emptyForm = {
   supplier: '', gstin: '', invno: '', invdate: '', base: '', gstRate: '18',
+  gstAmt: '', // '' = auto-calculate from gstRate; set to stored value when editing
   desc: '', dept: '', receivedDate: '', receivedBy: 'Procurement',
   terms: 'Net 30 Days', due: '',
 };
@@ -40,6 +41,8 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
         invdate:      invoice.invdate      || '',
         base:         stripFmt(invoice.base),
         gstRate:      invoice.gstRate      || '18',
+        // Pre-fill stored gst so we don't recalculate from rate (blended rates in GRN)
+        gstAmt:       stripFmt(invoice.gst) || '',
         desc:         invoice.desc         || '',
         dept:         invoice.dept         || '',
         receivedDate: invoice.receivedDate || '',
@@ -56,11 +59,23 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
     }
   }, [invoice, isOpen]);
 
-  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+  const set = (field) => (e) => {
+    const val = e.target.value;
+    // When base amount or GST rate changes, clear the stored gstAmt so it recalculates from the rate
+    if (field === 'base' || field === 'gstRate') {
+      setForm(f => ({ ...f, [field]: val, gstAmt: '' }));
+    } else {
+      setForm(f => ({ ...f, [field]: val }));
+    }
+  };
 
   // Invoice totals
+  // If gstAmt is pre-filled (edit mode with stored value), use it directly.
+  // Otherwise (create mode, or user changed base/rate), calculate from gstRate.
   const baseNum  = Number(form.base.replace(/,/g, '')) || 0;
-  const gstNum   = Math.round(baseNum * (Number(form.gstRate) / 100));
+  const gstNum   = form.gstAmt !== ''
+    ? (Number(form.gstAmt.replace(/,/g, '')) || 0)
+    : Math.round(baseNum * (Number(form.gstRate) / 100));
   const totalNum = baseNum + gstNum;
 
   // Per-row TDS calculation
