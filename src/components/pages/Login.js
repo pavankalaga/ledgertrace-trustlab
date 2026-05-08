@@ -79,7 +79,7 @@ const Login = ({ onLogin }) => {
         {/* Left brand panel */}
         <div className="login-left">
           <div className="sp-left-content">
-            <img src="/login-logo.png" alt="LedgerTrace" className="login-hero-logo" />
+            <img src="/login-logo.png?v=2" alt="LedgerTrace" className="login-hero-logo" />
             <div className="login-dots">
               <span /><span /><span /><span />
             </div>
