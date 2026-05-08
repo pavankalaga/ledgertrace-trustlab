@@ -1,13 +1,46 @@
 import React, { useState } from 'react';
 import { loginApi } from '../../api';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+
+const ShieldIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+const UserIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+const LockIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+const EyeIcon = ({ off }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {off ? (
+      <>
+        <path d="M17.94 17.94A10.06 10.06 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </>
+    ) : (
+      <>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    )}
+  </svg>
+);
 
 const Login = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,129 +59,105 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const handleClear = () => {
+    setName('');
+    setPassword('');
+    setError('');
+  };
+
   return (
-    <div style={styles.wrapper}>
-      <form onSubmit={handleSubmit} style={styles.card}>
-        {/* Logo */}
-        <div style={styles.logoSection}>
-          <img src="/login-logo.png" alt="LedgerTrace" style={styles.logo} />
-          <div style={styles.appName}>LedgerTrace</div>
-          <div style={styles.tagline}>Invoice Tracking & Workflow</div>
+    <div className="login-page">
+      <div className="sp-grid" />
+      <div className="sp-particle" />
+      <div className="sp-particle" />
+      <div className="sp-particle" />
+      <div className="sp-particle" />
+      <div className="sp-particle" />
+      <div className="sp-particle" />
+
+      <div className="login-card">
+        {/* Left brand panel */}
+        <div className="login-left">
+          <div className="sp-left-content">
+            <img src="/login-logo.png" alt="LedgerTrace" className="login-hero-logo" />
+            <div className="login-dots">
+              <span /><span /><span /><span />
+            </div>
+          </div>
         </div>
 
-        {/* Error */}
-        {error && <div style={styles.error}>{error}</div>}
+        {/* Right form panel */}
+        <form className="login-right" onSubmit={handleSubmit}>
+          <div className="lr-secure">
+            <ShieldIcon />
+            SECURE
+          </div>
 
-        {/* Name field */}
-        <div className="ff" style={{ marginBottom: 14 }}>
-          <label className="f-label">Username</label>
-          <input
-            className="f-input"
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Enter your name"
-            autoFocus
-          />
-        </div>
+          <h1 className="lr-title">Sign <span>In</span></h1>
+          <p className="lr-welcome">Welcome back. Enter your credentials to continue.</p>
 
-        {/* Password field */}
-        <div className="ff" style={{ marginBottom: 24 }}>
-          <label className="f-label">Password</label>
-          <input
-            className="f-input"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Enter password"
-          />
-        </div>
+          {error && <div className="lr-error">{error}</div>}
 
-        {/* Sign In button */}
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          disabled={loading}
-          sx={{
-            textTransform: 'none',
-            fontSize: 14,
-            fontWeight: 700,
-            fontFamily: "'Syne', sans-serif",
-            backgroundColor: '#0a7c6e',
-            borderRadius: '8px',
-            padding: '11px',
-            boxShadow: 'none',
-            '&:hover': { backgroundColor: '#086358', boxShadow: 'none' },
-          }}
-        >
-          {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Sign In'}
-        </Button>
+          <div className="lr-field">
+            <label className="lr-label">Username</label>
+            <div className="lr-input-wrap">
+              <input
+                className="lr-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your username"
+                autoFocus
+                autoComplete="username"
+              />
+              <span className="lr-icon"><UserIcon /></span>
+            </div>
+          </div>
 
-        <div style={styles.footer}>Secure access to your invoice workflow</div>
-      </form>
+          <div className="lr-field">
+            <label className="lr-label">Password</label>
+            <div className="lr-input-wrap">
+              <input
+                className="lr-input"
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+              <span className="lr-icon"><LockIcon /></span>
+              <button
+                type="button"
+                className="lr-eye"
+                onClick={() => setShowPwd((s) => !s)}
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+              >
+                <EyeIcon off={showPwd} />
+              </button>
+            </div>
+          </div>
+
+          <div className="lr-actions">
+            <button type="submit" className="lr-btn lr-btn-primary" disabled={loading}>
+              {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Sign In'}
+            </button>
+            <button type="button" className="lr-btn lr-btn-ghost" onClick={handleClear} disabled={loading}>
+              Clear
+            </button>
+          </div>
+
+          <a href="#forgot" className="lr-forgot" onClick={(e) => e.preventDefault()}>
+            Forgot Password?
+          </a>
+
+          <div className="lr-foot">
+            <LockIcon />
+            256-bit SSL encrypted &middot; Authorized access only
+          </div>
+        </form>
+      </div>
     </div>
   );
-};
-
-const styles = {
-  wrapper: {
-    minHeight: '100vh',
-    width: '100vw',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(135deg, #0e1117 0%, #1a2332 50%, #0e1117 100%)',
-  },
-  card: {
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 14,
-    padding: '44px 40px 36px',
-    width: 400,
-    boxShadow: '0 12px 48px rgba(0,0,0,0.15)',
-  },
-  logoSection: {
-    textAlign: 'center',
-    marginBottom: 28,
-  },
-  logo: {
-    height: 64,
-    marginBottom: 10,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 800,
-    letterSpacing: -0.5,
-    color: '#0e1117',
-    fontFamily: "'Syne', sans-serif",
-  },
-  tagline: {
-    fontFamily: "'Crimson Pro', serif",
-    fontSize: 13.5,
-    color: '#888',
-    fontStyle: 'italic',
-    marginTop: 3,
-  },
-  error: {
-    background: '#fef2f2',
-    color: '#e84040',
-    padding: '9px 14px',
-    borderRadius: 7,
-    fontSize: 12.5,
-    fontWeight: 600,
-    marginBottom: 18,
-    textAlign: 'center',
-    border: '1px solid #fecaca',
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: 11.5,
-    color: '#aaa',
-    marginTop: 20,
-    fontFamily: "'Crimson Pro', serif",
-    fontStyle: 'italic',
-  },
 };
 
 export default Login;
