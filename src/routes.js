@@ -3,6 +3,9 @@ import Invoices from './components/pages/Invoices';
 import Pending from './components/pages/Pending';
 import Approvals from './components/pages/Approvals';
 import Payments from './components/pages/Payments';
+import FixedPayments from './components/pages/FixedPayments';
+import SpendAnalytics from './components/pages/SpendAnalytics';
+import PDCTracker from './components/pages/PDCTracker';
 import Reports from './components/pages/Reports';
 import Suppliers from './components/pages/Suppliers';
 import Settings from './components/pages/Settings';
@@ -13,6 +16,9 @@ const routes = [
   { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Workflow', component: Pending, icon: 'pending' },
   { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals' },
   { path: '/payments', key: 'payments', label: 'Payments', section: 'Workflow', component: Payments, icon: 'payments' },
+  { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Workflow', component: FixedPayments, icon: 'fixed' },
+  { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Workflow', component: PDCTracker, icon: 'pdc' },
+  { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Finance', component: SpendAnalytics, icon: 'analytics' },
   { path: '/reports', key: 'reports', label: 'Reports', section: 'Finance', component: Reports, icon: 'reports' },
   { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Finance', component: Suppliers, icon: 'suppliers' },
   { path: '/settings', key: 'settings', label: 'Settings', section: 'Finance', component: Settings, icon: 'settings' },
