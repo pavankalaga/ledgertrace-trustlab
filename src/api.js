@@ -123,3 +123,14 @@ export const deleteVoucher = (id) => mutateApi(`/vouchers/${id}`, 'DELETE');
 export const getBudgets = () => fetchApi('/vouchers/budgets');
 export const createBudget = (data) => mutateApi('/vouchers/budgets', 'POST', data);
 export const deleteBudget = (id) => mutateApi(`/vouchers/budgets/${id}`, 'DELETE');
+
+// ── SUPPLIER LEDGER (derived from invoices + payments) ──────────────
+export const getLedgerTransactions = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/supplier-ledger/transactions${qs ? '?' + qs : ''}`);
+};
+export const getLedgerKpis = () => fetchApi('/supplier-ledger/kpis');
+export const getLedgerStatement = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/supplier-ledger/statement${qs ? '?' + qs : ''}`);
+};

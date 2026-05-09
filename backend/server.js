@@ -37,6 +37,7 @@ app.use('/api/fixed-payments', require('./routes/fixedPayments'));
 app.use('/api/pdc', require('./routes/pdc'));
 app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/spend-analytics', require('./routes/spendAnalytics'));
+app.use('/api/supplier-ledger', require('./routes/supplierLedger'));
 
 // Serve React build in production
 if (process.env.NODE_ENV === 'production') {

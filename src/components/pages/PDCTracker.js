@@ -232,6 +232,15 @@ const blankPdc = () => ({
   party: '', bank: '', bankBranch: '', ifsc: '', acct: '', accountHolder: '', micr: '',
   amount: 0, status: 'In Custody', custody: '', custodian: '', safe: '', depositAccount: '',
   invoiceRef: '', internalRef: '', purpose: '', remarks: '',
+  frontImage: '', backImage: '',
+});
+
+// Read a file as base64 data URL
+const readAsDataURL = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = reject;
+  r.readAsDataURL(file);
 });
 
 const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
@@ -240,6 +249,14 @@ const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
   const [error, setError] = useState('');
 
   const upd = (k, v) => setForm(s => ({ ...s, [k]: v }));
+
+  const handleImage = async (key, file) => {
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) { setError('Image too large (max 4 MB)'); return; }
+    if (!/^image\//.test(file.type)) { setError('File must be an image (JPG/PNG)'); return; }
+    try { const b64 = await readAsDataURL(file); upd(key, b64); setError(''); }
+    catch { setError('Failed to read image'); }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -324,9 +341,58 @@ const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, borderTop: '1px solid var(--rule)', paddingTop: 18 }}>
-        <button type="button" className="btn btn-ghost" onClick={() => setForm(blankPdc())} disabled={saving}>Clear Form</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save & Lodge in Custody'}</button>
+      <div className="pdc-step">
+        <div className="pdc-step-num">4</div>
+        <div style={{ flex: 1 }}>
+          <h3 className="pdc-step-title">Cheque Image Upload</h3>
+          <p style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 14, fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}>
+            Upload clear photographs or scans of both faces of the cheque. JPG/PNG, max 4 MB each.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <label className="pdc-drop">
+              {form.frontImage ? (
+                <>
+                  <img src={form.frontImage} alt="front" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, marginBottom: 8 }} />
+                  <div style={{ fontSize: 11, color: 'var(--teal-700)', fontWeight: 700 }}>FRONT FACE — uploaded</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink4)' }}>Click to replace</div>
+                </>
+              ) : (
+                <>
+                  <div className="pdc-drop-icon">📄</div>
+                  <div className="td-bold">FRONT FACE</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink4)' }}>Click to upload or drag image</div>
+                </>
+              )}
+              <input type="file" accept="image/*" onChange={(e) => handleImage('frontImage', e.target.files?.[0])} hidden />
+            </label>
+            <label className="pdc-drop">
+              {form.backImage ? (
+                <>
+                  <img src={form.backImage} alt="back" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, marginBottom: 8 }} />
+                  <div style={{ fontSize: 11, color: 'var(--teal-700)', fontWeight: 700 }}>REVERSE / BACK — uploaded</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink4)' }}>Click to replace</div>
+                </>
+              ) : (
+                <>
+                  <div className="pdc-drop-icon">📄</div>
+                  <div className="td-bold">REVERSE / BACK</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink4)' }}>Endorsement side (optional)</div>
+                </>
+              )}
+              <input type="file" accept="image/*" onChange={(e) => handleImage('backImage', e.target.files?.[0])} hidden />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, borderTop: '1px solid var(--rule)', paddingTop: 18 }}>
+        <span style={{ fontSize: 11.5, color: 'var(--ink4)', fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}>
+          All fields marked <span style={{ color: 'var(--coral)' }}>*</span> are mandatory. Once saved, the PDC enters custody and appears in the Register.
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button type="button" className="btn btn-ghost" onClick={() => setForm(blankPdc())} disabled={saving}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : '💾 Save & Lodge in Custody'}</button>
+        </div>
       </div>
     </form>
   );
@@ -749,6 +815,19 @@ const DetailModal = ({ pdc, onClose, onChanged, onDeleted, onShowToast }) => {
                 <button type="submit" className="btn btn-primary">Apply</button>
               </div>
             </form>
+          )}
+
+          {(pdc.frontImage || pdc.backImage) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+              <div>
+                <div className="dsec-label" style={{ marginBottom: 6 }}>Front</div>
+                {pdc.frontImage ? <img src={pdc.frontImage} alt="front" style={{ width: '100%', borderRadius: 6, border: '1px solid var(--rule)' }} /> : <div className="pdc-thumb">No front image</div>}
+              </div>
+              <div>
+                <div className="dsec-label" style={{ marginBottom: 6 }}>Back</div>
+                {pdc.backImage ? <img src={pdc.backImage} alt="back" style={{ width: '100%', borderRadius: 6, border: '1px solid var(--rule)' }} /> : <div className="pdc-thumb">No back image</div>}
+              </div>
+            </div>
           )}
 
           <div className="info-grid">

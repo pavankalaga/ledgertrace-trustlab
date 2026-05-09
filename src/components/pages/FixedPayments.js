@@ -31,11 +31,37 @@ const inrShort = (n) => {
 const empty12Months = () => Array.from({ length: 12 }, () => ({ status: 'forecast', amount: 0, date: '' }));
 
 // ── Forecast Form Modal ───────────────────────────────────────────────────
+const TIMELINE_PRESET = {
+  Monthly:       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  Quarterly:     [0, 3, 6, 9],
+  'Half-yearly': [0, 6],
+  Annual:        [0],
+  Custom:        [],
+};
+
 const blankForecast = (fy) => ({
   category: 'Rents', location: '', locCode: '', vendor: '', vendorMeta: '',
-  timeline: 'Monthly', annual: 0, tdsRate: 0, dueDay: 5, mode: 'NEFT',
-  fy, notes: '', months: empty12Months(),
+  timeline: 'Monthly', selectedMonths: TIMELINE_PRESET.Monthly,
+  perInstalment: 0, tdsRate: 0,
+  dueDay: 5, mode: 'NEFT', fy, notes: '',
 });
+
+// Convert a saved forecast (with months[] and annual) back to form state
+const forecastToForm = (f) => {
+  const selected = (f.months || []).map((m, i) => m.status !== 'na' ? i : -1).filter(i => i >= 0);
+  const sel = selected.length || 12;
+  return {
+    _id: f._id,
+    category: f.category, location: f.location, locCode: f.locCode || '',
+    vendor: f.vendor, vendorMeta: f.vendorMeta || '',
+    timeline: f.timeline || 'Monthly',
+    selectedMonths: selected.length ? selected : TIMELINE_PRESET.Monthly,
+    perInstalment: Math.round((f.annual || 0) / sel),
+    tdsRate: f.tdsRate || 0,
+    dueDay: f.dueDay || 5, mode: f.mode || 'NEFT',
+    fy: f.fy, notes: f.notes || '',
+  };
+};
 
 const ForecastModal = ({ open, initial, fy, onClose, onSaved, onDeleted }) => {
   const [form, setForm] = useState(blankForecast(fy));
@@ -44,7 +70,7 @@ const ForecastModal = ({ open, initial, fy, onClose, onSaved, onDeleted }) => {
 
   useEffect(() => {
     if (open) {
-      setForm(initial ? { ...initial } : blankForecast(fy));
+      setForm(initial ? forecastToForm(initial) : blankForecast(fy));
       setError('');
     }
   }, [open, initial, fy]);
@@ -52,57 +78,86 @@ const ForecastModal = ({ open, initial, fy, onClose, onSaved, onDeleted }) => {
   if (!open) return null;
 
   const upd = (k, v) => setForm(s => ({ ...s, [k]: v }));
-  const annualExTds = Math.round(((parseFloat(form.annual) || 0) * (1 - (parseFloat(form.tdsRate) || 0) / 100)));
+
+  const setTimeline = (t) => {
+    setForm(s => ({ ...s, timeline: t, selectedMonths: t === 'Custom' ? s.selectedMonths : TIMELINE_PRESET[t] }));
+  };
+  const toggleMonth = (i) => {
+    if (form.timeline !== 'Custom') return;
+    setForm(s => {
+      const next = s.selectedMonths.includes(i) ? s.selectedMonths.filter(x => x !== i) : [...s.selectedMonths, i].sort((a, b) => a - b);
+      return { ...s, selectedMonths: next };
+    });
+  };
+
+  const perInstExTds = Math.round(((parseFloat(form.perInstalment) || 0) * (1 - (parseFloat(form.tdsRate) || 0) / 100)));
+  const annual = (parseFloat(form.perInstalment) || 0) * form.selectedMonths.length;
+  const annualExTds = perInstExTds * form.selectedMonths.length;
+  const monthsLabel = form.selectedMonths.map(i => MONTHS[i].toUpperCase()).join(', ');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.category || !form.vendor || !form.location || !form.annual) {
-      setError('Category, location, vendor and annual amount are required.');
+    if (!form.category || !form.vendor || !form.location || !form.perInstalment) {
+      setError('Category, location, vendor and per-instalment amount are required.');
+      return;
+    }
+    if (form.selectedMonths.length === 0) {
+      setError('Select at least one payment month.');
       return;
     }
     setSaving(true);
     try {
-      const payload = { ...form, annualExTds };
+      // Build months[12]: selected → forecast (or preserved status if editing), others → na
+      const existing = initial?.months || [];
+      const months = Array.from({ length: 12 }, (_, i) => {
+        if (!form.selectedMonths.includes(i)) return { status: 'na', amount: 0, date: '' };
+        const ex = existing[i];
+        if (ex && ex.status !== 'na') return ex.toObject ? ex.toObject() : ex;
+        return { status: 'forecast', amount: 0, date: '' };
+      });
+      const payload = {
+        category: form.category, location: form.location, locCode: form.locCode,
+        vendor: form.vendor, vendorMeta: form.vendorMeta,
+        timeline: form.timeline,
+        annual, annualExTds, tdsRate: form.tdsRate,
+        dueDay: form.dueDay, mode: form.mode, fy: form.fy,
+        notes: form.notes, months,
+      };
       const saved = initial?._id
         ? await updateFixedForecast(initial._id, payload)
         : await createFixedForecast(payload);
       onSaved(saved);
       onClose();
-    } catch (err) {
-      setError(err.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { setError(err.message || 'Failed to save'); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!initial?._id) return;
     if (!window.confirm('Delete this forecast and all its lodged payments?')) return;
     setSaving(true);
-    try {
-      await deleteFixedForecast(initial._id);
-      onDeleted(initial._id);
-      onClose();
-    } catch (err) {
-      setError(err.message || 'Failed to delete');
-    } finally {
-      setSaving(false);
-    }
+    try { await deleteFixedForecast(initial._id); onDeleted(initial._id); onClose(); }
+    catch (err) { setError(err.message); }
+    finally { setSaving(false); }
   };
 
   return (
     <div className="modal-back open" onClick={onClose}>
-      <form className="modal" onClick={e => e.stopPropagation()} onSubmit={handleSubmit}>
-        <div className="modal-hd">
+      <form className="modal" style={{ width: 720 }} onClick={e => e.stopPropagation()} onSubmit={handleSubmit}>
+        <div className="modal-hd" style={{ background: 'var(--teal-grad)', color: '#fff', borderBottom: 'none' }}>
           <div>
-            <div className="modal-title">{initial ? 'Edit Forecast' : 'Add Forecast'}</div>
-            <div className="modal-sub">Plan annual fixed payments and frequency</div>
+            <div className="modal-title" style={{ color: '#fff' }}>{initial ? 'Edit Fixed Cost Forecast' : 'Add Fixed Cost Forecast'}</div>
           </div>
-          <button type="button" className="drawer-close" onClick={onClose}>×</button>
+          <button type="button" className="drawer-close" onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }}>×</button>
         </div>
         <div className="modal-body">
           {error && <div className="lr-error" style={{ marginBottom: 14 }}>{error}</div>}
+
+          <div className="fp-info-banner">
+            <strong>How forecasting works:</strong> Set the per-instalment cost for one location-vendor combination. The system auto-creates payment slots based on your timeline. Lodge actual payments as they happen — variance is computed automatically.
+          </div>
+
           <div className="form-grid">
             <div className="ff">
               <label className="f-label">Category *</label>
@@ -111,27 +166,78 @@ const ForecastModal = ({ open, initial, fy, onClose, onSaved, onDeleted }) => {
               </select>
             </div>
             <div className="ff">
-              <label className="f-label">Location *</label>
-              <input className="f-input" value={form.location} onChange={e => upd('location', e.target.value)} placeholder="HQ Mumbai" />
+              <label className="f-label">Location / Branch *</label>
+              <input className="f-input" value={form.location} onChange={e => upd('location', e.target.value)} placeholder="HQ Mumbai" required />
             </div>
             <div className="ff"><label className="f-label">Location Code</label><input className="f-input" value={form.locCode} onChange={e => upd('locCode', e.target.value)} placeholder="MUM-01" /></div>
-            <div className="ff"><label className="f-label">Vendor *</label><input className="f-input" value={form.vendor} onChange={e => upd('vendor', e.target.value)} placeholder="Vendor name" /></div>
-            <div className="ff s2"><label className="f-label">Vendor Reference</label><input className="f-input" value={form.vendorMeta} onChange={e => upd('vendorMeta', e.target.value)} placeholder="GSTIN / PAN / A/c No." /></div>
+            <div className="ff"><label className="f-label">Vendor / Service Provider *</label><input className="f-input" value={form.vendor} onChange={e => upd('vendor', e.target.value)} placeholder="e.g. Sri Krishna Properties" required /></div>
+            <div className="ff s2"><label className="f-label">Vendor Reference</label><input className="f-input" value={form.vendorMeta} onChange={e => upd('vendorMeta', e.target.value)} placeholder="Lease #, Service No., Account ID..." /></div>
+
             <div className="ff s2">
               <label className="f-label">Payment Timeline</label>
-              <div className="tabs" style={{ display: 'inline-flex' }}>
+              <div className="fp-timeline-tabs">
                 {TIMELINES.map(t => (
-                  <button type="button" key={t} className={`tab ${form.timeline === t ? 'active' : ''}`} onClick={() => upd('timeline', t)}>{t}</button>
+                  <button type="button" key={t} className={`fp-timeline-tab ${form.timeline === t ? 'active' : ''}`} onClick={() => setTimeline(t)}>{t}</button>
                 ))}
               </div>
+              <div className="fp-month-picker">
+                {MONTHS.map((m, i) => (
+                  <button
+                    type="button"
+                    key={m}
+                    className={`fp-month-chip ${form.selectedMonths.includes(i) ? 'on' : ''} ${form.timeline === 'Custom' ? 'clickable' : ''}`}
+                    onClick={() => toggleMonth(i)}
+                    title={form.timeline === 'Custom' ? 'Click to toggle' : 'Auto-set by timeline — switch to Custom to edit'}
+                  >
+                    {m.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <div className="fp-month-hint">
+                {form.timeline === 'Custom' ? 'Custom: click chips to toggle months' : <>Auto-set: <b>{monthsLabel || '—'}</b></>}
+              </div>
             </div>
-            <div className="ff"><label className="f-label">Annual (incl TDS) *</label><input className="f-input" type="number" value={form.annual} onChange={e => upd('annual', e.target.value)} /></div>
-            <div className="ff"><label className="f-label">TDS Rate %</label><input className="f-input" type="number" step="0.1" value={form.tdsRate} onChange={e => upd('tdsRate', e.target.value)} /></div>
-            <div className="ff"><label className="f-label">Annual (excl TDS)</label><input className="f-input" value={annualExTds} disabled /></div>
-            <div className="ff"><label className="f-label">Due Day</label><input className="f-input" type="number" min="1" max="31" value={form.dueDay} onChange={e => upd('dueDay', e.target.value)} /></div>
-            <div className="ff"><label className="f-label">Payment Mode</label><select className="f-input" value={form.mode} onChange={e => upd('mode', e.target.value)}>{MODES.map(m => <option key={m}>{m}</option>)}</select></div>
-            <div className="ff"><label className="f-label">FY</label><select className="f-input" value={form.fy} onChange={e => upd('fy', e.target.value)}>{FY_LIST.map(f => <option key={f}>{f}</option>)}</select></div>
-            <div className="ff s2"><label className="f-label">Forecast Notes</label><textarea className="f-input" rows={3} value={form.notes} onChange={e => upd('notes', e.target.value)} /></div>
+
+            <div className="ff">
+              <label className="f-label">Per-Instalment Amount (Incl TDS) *</label>
+              <input className="f-input" type="number" value={form.perInstalment} onChange={e => upd('perInstalment', e.target.value)} required />
+              <span className="fp-hint">Gross billed amount before TDS deduction</span>
+            </div>
+            <div className="ff">
+              <label className="f-label">TDS Rate (%)</label>
+              <input className="f-input" type="number" step="0.1" value={form.tdsRate} onChange={e => upd('tdsRate', e.target.value)} />
+              <span className="fp-hint">Section 194-I (rents) / 194-J etc.</span>
+            </div>
+            <div className="ff">
+              <label className="f-label">Per-Instalment (Excl TDS)</label>
+              <input className="f-input" value={perInstExTds} disabled />
+              <span className="fp-hint">Auto-calculated: net payable to vendor</span>
+            </div>
+
+            <div className="ff">
+              <label className="f-label">Due Day of Month</label>
+              <input className="f-input" type="number" min="1" max="31" value={form.dueDay} onChange={e => upd('dueDay', e.target.value)} />
+              <span className="fp-hint">For "Due Soon" / "Overdue" alerts</span>
+            </div>
+            <div className="ff">
+              <label className="f-label">Default Payment Mode</label>
+              <select className="f-input" value={form.mode} onChange={e => upd('mode', e.target.value)}>{MODES.map(m => <option key={m}>{m}</option>)}</select>
+            </div>
+            <div className="ff">
+              <label className="f-label">Financial Year</label>
+              <select className="f-input" value={form.fy} onChange={e => upd('fy', e.target.value)}>{FY_LIST.map(f => <option key={f}>{f}</option>)}</select>
+            </div>
+
+            <div className="ff s2">
+              <label className="f-label">Forecast Notes</label>
+              <textarea className="f-input" rows={3} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Any context: lease escalation clauses, contract end dates, expected revisions, etc." />
+            </div>
+
+            <div className="ff s2 fp-rollup">
+              <span><span className="kpi-ey">Annual (Incl TDS)</span><b>{inr(annual)}</b></span>
+              <span><span className="kpi-ey">Annual (Excl TDS)</span><b>{inr(annualExTds)}</b></span>
+              <span><span className="kpi-ey">Slots</span><b>{form.selectedMonths.length}</b></span>
+            </div>
           </div>
         </div>
         <div className="modal-ft">
