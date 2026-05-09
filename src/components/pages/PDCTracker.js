@@ -1,4 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  getPdcDashboard, getPdcs, createPdc, updatePdc, deletePdc, changePdcStatus,
+  getBankAccounts, createBankAccount, deleteBankAccount,
+  getParties, createParty, deleteParty,
+  getBranches, createBranch, deleteBranch,
+} from '../../api';
 
 const TABS = ['Dashboard', 'PDC Register', 'New PDC', 'Banking', 'Bounce Register', 'Reports', 'Masters', 'Audit Log'];
 
@@ -17,47 +23,26 @@ const STATUS_STYLE = {
   'Legal Action': { bg: '#fef3c7',        fg: '#92400e' },
 };
 
-const SAMPLE_PDCS = [
-  { id: 'PDC-2026-0421', dir: 'IN',  cheque: '187420', maturity: '2026-05-15', party: 'Apex Healthcare Ltd',  bank: 'HDFC Bank',     amount: 250000, status: 'In Custody', custody: 'MUM-01', images: true,  acct: '50100123456789', ifsc: 'HDFC0001234' },
-  { id: 'PDC-2026-0420', dir: 'IN',  cheque: '187419', maturity: '2026-05-12', party: 'Sunrise Pharmacy',     bank: 'ICICI Bank',    amount: 84000,  status: 'Presented',  custody: 'MUM-01', images: true,  acct: '00112345678901', ifsc: 'ICIC0001122' },
-  { id: 'PDC-2026-0419', dir: 'OUT', cheque: '503112', maturity: '2026-05-10', party: 'Roche Diagnostics',    bank: 'SBI',           amount: 480000, status: 'Cleared',    custody: 'MUM-01', images: true,  acct: '34567890123', ifsc: 'SBIN0001234' },
-  { id: 'PDC-2026-0418', dir: 'IN',  cheque: '187415', maturity: '2026-05-08', party: 'Wellness Path',        bank: 'Axis Bank',     amount: 67500,  status: 'Bounced',    custody: 'MUM-01', images: false, acct: '912010012345', ifsc: 'UTIB0001234' },
-  { id: 'PDC-2026-0417', dir: 'OUT', cheque: '503111', maturity: '2026-05-20', party: 'Siemens Healthineers', bank: 'HDFC Bank',     amount: 1240000,status: 'In Custody', custody: 'PUN-02', images: true,  acct: '50100123456789', ifsc: 'HDFC0001234' },
-  { id: 'PDC-2026-0416', dir: 'IN',  cheque: '187410', maturity: '2026-04-30', party: 'CityCare Diagnostics', bank: 'Kotak',         amount: 32000,  status: 'Cleared',    custody: 'HYD-03', images: true,  acct: '600110201234', ifsc: 'KKBK0001234' },
-  { id: 'PDC-2026-0415', dir: 'IN',  cheque: '187408', maturity: '2026-04-25', party: 'MediTrust Labs',       bank: 'PNB',           amount: 145000, status: 'Bounced',    custody: 'MUM-01', images: true,  acct: '12345678901234', ifsc: 'PUNB0123456' },
-  { id: 'PDC-2026-0414', dir: 'IN',  cheque: '187405', maturity: '2026-06-02', party: 'Sunrise Pharmacy',     bank: 'ICICI Bank',    amount: 92000,  status: 'In Custody', custody: 'PUN-02', images: true,  acct: '00112345678901', ifsc: 'ICIC0001122' },
+const RBI_RETURN_REASONS = [
+  '01 — Funds insufficient', '02 — Account closed', '03 — Refer to drawer',
+  '12 — Stop payment', '13 — Out of date', '14 — Post-dated cheque presented before date',
+  '15 — Crossed cheque', '21 — Drawer signature differs', '88 — Other',
 ];
 
-const BANK_ACCOUNTS = [
-  { nick: 'Operating-A', bank: 'HDFC Bank', branch: 'Andheri W', acct: '50100123456789', ifsc: 'HDFC0001234', type: 'Current' },
-  { nick: 'Operating-B', bank: 'ICICI Bank', branch: 'BKC', acct: '00112345678901', ifsc: 'ICIC0001122', type: 'Current' },
-  { nick: 'Reserve', bank: 'SBI', branch: 'Fort', acct: '34567890123', ifsc: 'SBIN0001234', type: 'Cash Credit' },
-];
-
-const PARTIES = ['Apex Healthcare Ltd', 'Sunrise Pharmacy', 'Roche Diagnostics', 'Wellness Path', 'Siemens Healthineers', 'CityCare Diagnostics', 'MediTrust Labs'];
-const BRANCHES = [{ code: 'MUM-01', name: 'HQ Mumbai' }, { code: 'PUN-02', name: 'Pune Lab' }, { code: 'HYD-03', name: 'Hyderabad' }, { code: 'BLR-04', name: 'Bangalore' }];
-const DRAWER_BANKS = ['HDFC Bank', 'ICICI Bank', 'SBI', 'Axis Bank', 'Kotak', 'PNB', 'Yes Bank', 'IDFC First'];
-
-const AUDIT_LOG = [
-  { ts: '2026-05-08 16:42', user: 'Priya S.', action: 'STATUS_CHANGE', pdc: 'PDC-2026-0418', details: 'In Custody → Bounced (Reason: Funds insufficient)' },
-  { ts: '2026-05-08 11:15', user: 'Rahul M.', action: 'CREATED',       pdc: 'PDC-2026-0421', details: 'New inward PDC, Apex Healthcare ₹2,50,000' },
-  { ts: '2026-05-07 18:22', user: 'Anjali I.', action: 'CUSTODY_TRANSFER', pdc: 'PDC-2026-0414', details: 'MUM-01 → PUN-02 (custodian: V. Patel)' },
-  { ts: '2026-05-07 14:08', user: 'Priya S.', action: 'IMAGE_UPLOAD',  pdc: 'PDC-2026-0420', details: 'Front + back uploaded' },
-  { ts: '2026-05-06 10:54', user: 'Vikram P.', action: 'CLEARED',       pdc: 'PDC-2026-0419', details: 'Realised in Operating-A on 06 May' },
-  { ts: '2026-05-05 09:32', user: 'Rahul M.', action: 'BOUNCED',       pdc: 'PDC-2026-0415', details: 'Return Reason 01 - Funds insufficient' },
-];
-
-const inr = (n) => '₹' + (n || 0).toLocaleString('en-IN');
+const inr = (n) => '₹' + (parseFloat(n) || 0).toLocaleString('en-IN');
 const inrShort = (n) => {
-  if (!n) return '₹0';
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)}Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
-  return inr(n);
+  const v = parseFloat(n) || 0;
+  if (!v) return '₹0';
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+  if (v >= 100000) return `₹${(v / 100000).toFixed(2)}L`;
+  return inr(v);
 };
 
 const daysFromNow = (dateStr) => {
+  if (!dateStr) return 0;
   const d = new Date(dateStr);
-  const today = new Date('2026-05-08');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   return Math.round((d - today) / (1000 * 60 * 60 * 24));
 };
 
@@ -74,74 +59,79 @@ const agingLabel = (dateStr, status) => {
 };
 
 // ── Dashboard tab ─────────────────────────────────────────────────────────
-const DashboardTab = ({ onOpenDetail }) => {
-  const upcoming = SAMPLE_PDCS.filter(p => ['In Custody', 'Presented', 'Re-presented'].includes(p.status))
-    .sort((a, b) => new Date(a.maturity) - new Date(b.maturity)).slice(0, 6);
+const DashboardTab = ({ pdcs, onOpenDetail }) => {
+  const upcoming = useMemo(() =>
+    pdcs.filter(p => ['In Custody', 'Presented', 'Re-presented'].includes(p.status))
+      .sort((a, b) => new Date(a.maturity) - new Date(b.maturity)).slice(0, 6)
+  , [pdcs]);
 
   const distrib = useMemo(() => {
     const map = {};
-    SAMPLE_PDCS.forEach(p => {
+    pdcs.forEach(p => {
       const k = `${p.dir}|${p.status}`;
       if (!map[k]) map[k] = { count: 0, value: 0, dir: p.dir, status: p.status };
       map[k].count++;
-      map[k].value += p.amount;
+      map[k].value += p.amount || 0;
     });
     return Object.values(map).sort((a, b) => b.value - a.value);
-  }, []);
-  const maxVal = Math.max(...distrib.map(d => d.value));
+  }, [pdcs]);
+  const maxVal = Math.max(...distrib.map(d => d.value), 1);
+
+  const overdueCount = pdcs.filter(p => daysFromNow(p.maturity) < 0 && !['Cleared', 'Bounced', 'Cancelled'].includes(p.status)).length;
+  const bouncedCount = pdcs.filter(p => p.status === 'Bounced').length;
+
+  // Build May calendar for current month
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   return (
     <div>
-      {/* Alerts */}
-      <div className="pdc-alert pdc-alert-warn" style={{ marginBottom: 10 }}>
-        <strong>2 Overdue PDCs</strong> · maturity passed but not yet presented — action required
-      </div>
-      <div className="pdc-alert pdc-alert-error" style={{ marginBottom: 16 }}>
-        <strong>2 Bounced cheques</strong> awaiting recovery action under Section 138 NI Act
-      </div>
+      {overdueCount > 0 && <div className="pdc-alert pdc-alert-warn" style={{ marginBottom: 10 }}><strong>{overdueCount} Overdue PDC{overdueCount > 1 ? 's' : ''}</strong> · maturity passed but not yet presented</div>}
+      {bouncedCount > 0 && <div className="pdc-alert pdc-alert-error" style={{ marginBottom: 16 }}><strong>{bouncedCount} Bounced cheque{bouncedCount > 1 ? 's' : ''}</strong> awaiting recovery action under Section 138 NI Act</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
         <div className="card">
           <div className="card-hd"><div className="card-title">Presentation Pipeline (Next 30 days)</div></div>
-          <table>
-            <thead>
-              <tr>
-                <th>Maturity</th><th>Aging</th><th>Cheque #</th><th>Party</th>
-                <th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th><th>Custody</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcoming.map(p => {
-                const aging = agingLabel(p.maturity, p.status);
-                return (
-                  <tr key={p.id} onClick={() => onOpenDetail(p)} style={{ cursor: 'pointer' }}>
-                    <td className="td-mono">{p.maturity}</td>
-                    <td><span className="pill" style={{ background: aging.bg, color: aging.color }}>{aging.label}</span></td>
-                    <td className="td-mono">{p.cheque}</td>
-                    <td className="td-bold" style={{ fontSize: 12.5 }}>{p.party}</td>
-                    <td>{p.bank}</td>
-                    <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
-                    <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
-                    <td><button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onOpenDetail(p); }}>View</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {upcoming.length === 0 ? <div className="empty"><p>No cheques pending presentation.</p></div> : (
+            <table>
+              <thead><tr><th>Maturity</th><th>Aging</th><th>Cheque #</th><th>Party</th><th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th><th>Custody</th><th></th></tr></thead>
+              <tbody>
+                {upcoming.map(p => {
+                  const aging = agingLabel(p.maturity, p.status);
+                  return (
+                    <tr key={p._id} onClick={() => onOpenDetail(p)} style={{ cursor: 'pointer' }}>
+                      <td className="td-mono">{p.maturity}</td>
+                      <td><span className="pill" style={{ background: aging.bg, color: aging.color }}>{aging.label}</span></td>
+                      <td className="td-mono">{p.cheque}</td>
+                      <td className="td-bold" style={{ fontSize: 12.5 }}>{p.party}</td>
+                      <td>{p.bank}</td>
+                      <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
+                      <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
+                      <td><button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onOpenDetail(p); }}>View</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="card">
-          <div className="card-hd"><div className="card-title">Maturity Calendar — May 2026</div></div>
+          <div className="card-hd"><div className="card-title">Maturity Calendar — {today.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</div></div>
           <div style={{ padding: 14 }}>
             <div className="pdc-cal">
-              {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} className="pdc-cal-dh">{d}</div>)}
-              {Array.from({ length: 35 }).map((_, i) => {
-                const day = i - 4; // May 1 starts on Friday (day index 5)
-                if (day < 1 || day > 31) return <div key={i} className="pdc-cal-day pdc-cal-blank" />;
-                const events = SAMPLE_PDCS.filter(p => p.maturity === `2026-05-${String(day).padStart(2, '0')}`);
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="pdc-cal-dh">{d}</div>)}
+              {Array.from({ length: firstDow + daysInMonth + ((7 - (firstDow + daysInMonth) % 7) % 7) }).map((_, i) => {
+                const day = i - firstDow + 1;
+                if (day < 1 || day > daysInMonth) return <div key={i} className="pdc-cal-day pdc-cal-blank" />;
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const events = pdcs.filter(p => p.maturity === dateStr);
                 const hasOverdue = events.some(e => e.status !== 'Cleared' && daysFromNow(e.maturity) < 0);
                 const hasDue = events.some(e => e.status !== 'Cleared' && daysFromNow(e.maturity) >= 0);
-                const isToday = day === 8;
+                const isToday = day === today.getDate();
                 let cls = 'pdc-cal-day';
                 if (hasOverdue) cls += ' pdc-cal-overdue';
                 else if (hasDue) cls += ' pdc-cal-due';
@@ -160,282 +150,317 @@ const DashboardTab = ({ onOpenDetail }) => {
 
       <div className="card">
         <div className="card-hd"><div className="card-title">Status Distribution</div></div>
-        <table>
-          <thead><tr><th>Direction</th><th>Status</th><th style={{ textAlign: 'right' }}>Count</th><th style={{ textAlign: 'right' }}>Value</th><th>Distribution</th></tr></thead>
-          <tbody>
-            {distrib.map((d, i) => (
-              <tr key={i}>
-                <td><span className="pill" style={{ background: d.dir === 'IN' ? 'var(--teal-lt)' : 'var(--gold-lt)', color: d.dir === 'IN' ? 'var(--teal-700)' : 'var(--gold)' }}>{d.dir}</span></td>
-                <td>{d.status}</td>
-                <td className="td-mono" style={{ textAlign: 'right' }}>{d.count}</td>
-                <td className="td-mono" style={{ textAlign: 'right' }}>{inr(d.value)}</td>
-                <td><div className="sb-bar-wrap" style={{ width: 200 }}><div className="sb-bar" style={{ width: `${d.value / maxVal * 100}%`, background: STATUS_STYLE[d.status]?.fg || 'var(--teal-700)' }} /></div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {distrib.length === 0 ? <div className="empty"><p>No data yet.</p></div> : (
+          <table>
+            <thead><tr><th>Direction</th><th>Status</th><th style={{ textAlign: 'right' }}>Count</th><th style={{ textAlign: 'right' }}>Value</th><th>Distribution</th></tr></thead>
+            <tbody>
+              {distrib.map((d, i) => (
+                <tr key={i}>
+                  <td><span className="pill" style={{ background: d.dir === 'IN' ? 'var(--teal-lt)' : 'var(--gold-lt)', color: d.dir === 'IN' ? 'var(--teal-700)' : 'var(--gold)' }}>{d.dir}</span></td>
+                  <td>{d.status}</td>
+                  <td className="td-mono" style={{ textAlign: 'right' }}>{d.count}</td>
+                  <td className="td-mono" style={{ textAlign: 'right' }}>{inr(d.value)}</td>
+                  <td><div className="sb-bar-wrap" style={{ width: 200 }}><div className="sb-bar" style={{ width: `${d.value / maxVal * 100}%`, background: STATUS_STYLE[d.status]?.fg || 'var(--teal-700)' }} /></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
 };
 
 // ── Register tab ──────────────────────────────────────────────────────────
-const RegisterTab = ({ onOpenDetail }) => {
+const RegisterTab = ({ pdcs, onOpenDetail }) => {
   const [search, setSearch] = useState('');
   const [dir, setDir] = useState('All');
   const [status, setStatus] = useState('All');
 
-  const filtered = useMemo(() => {
-    return SAMPLE_PDCS.filter(p => {
-      if (dir !== 'All' && p.dir !== dir) return false;
-      if (status !== 'All' && p.status !== status) return false;
-      if (search && !`${p.id}${p.cheque}${p.party}${p.bank}`.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [search, dir, status]);
+  const filtered = useMemo(() => pdcs.filter(p => {
+    if (dir !== 'All' && p.dir !== dir) return false;
+    if (status !== 'All' && p.status !== status) return false;
+    if (search && !`${p.pdcId || ''}${p.cheque}${p.party}${p.bank}`.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  }), [pdcs, search, dir, status]);
 
   return (
     <div>
       <div className="filter-strip" style={{ marginBottom: 14, borderRadius: 10, border: '1px solid var(--rule)', background: 'var(--white)' }}>
-        <input className="f-input" style={{ width: 260, padding: '6px 10px' }} placeholder="Cheque#, party, bank, invoice..." value={search} onChange={e => setSearch(e.target.value)} />
-        <select className="f-input" style={{ width: 130, padding: '6px 10px' }} value={dir} onChange={e => setDir(e.target.value)}>
-          <option>All</option><option value="IN">Inward</option><option value="OUT">Outward</option>
-        </select>
+        <input className="f-input" style={{ width: 260, padding: '6px 10px' }} placeholder="Cheque#, party, bank..." value={search} onChange={e => setSearch(e.target.value)} />
+        <select className="f-input" style={{ width: 130, padding: '6px 10px' }} value={dir} onChange={e => setDir(e.target.value)}><option>All</option><option value="IN">Inward</option><option value="OUT">Outward</option></select>
         <select className="f-input" style={{ width: 170, padding: '6px 10px' }} value={status} onChange={e => setStatus(e.target.value)}>
           <option>All Statuses</option>
           {STATUS_LIST.map(s => <option key={s}>{s}</option>)}
         </select>
-        <button className="filter-pill">All Branches ▾</button>
-        <button className="filter-pill">Aging ▾</button>
       </div>
 
       <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>PDC ID</th><th>Dir</th><th>Cheque #</th><th>Maturity</th><th>Aging</th>
-              <th>Party</th><th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th>
-              <th>Status</th><th>Custody</th><th>Img</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => {
-              const aging = agingLabel(p.maturity, p.status);
-              const ss = STATUS_STYLE[p.status];
-              return (
-                <tr key={p.id} onClick={() => onOpenDetail(p)} style={{ cursor: 'pointer' }}>
-                  <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{p.id}</td>
-                  <td><span className="pill" style={{ background: p.dir === 'IN' ? 'var(--teal-lt)' : 'var(--gold-lt)', color: p.dir === 'IN' ? 'var(--teal-700)' : 'var(--gold)' }}>{p.dir}</span></td>
-                  <td className="td-mono">{p.cheque}</td>
-                  <td className="td-mono">{p.maturity}</td>
-                  <td><span className="pill" style={{ background: aging.bg, color: aging.color }}>{aging.label}</span></td>
-                  <td className="td-bold" style={{ fontSize: 12.5 }}>{p.party}</td>
-                  <td>{p.bank}</td>
-                  <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
-                  <td><span className="pill" style={{ background: ss.bg, color: ss.fg }}>{p.status}</span></td>
-                  <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
-                  <td>{p.images ? '✓' : '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {filtered.length === 0 ? <div className="empty"><p>No PDCs match the filters.</p></div> : (
+          <table>
+            <thead><tr><th>PDC ID</th><th>Dir</th><th>Cheque #</th><th>Maturity</th><th>Aging</th><th>Party</th><th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th><th>Status</th><th>Custody</th></tr></thead>
+            <tbody>
+              {filtered.map(p => {
+                const aging = agingLabel(p.maturity, p.status);
+                const ss = STATUS_STYLE[p.status];
+                return (
+                  <tr key={p._id} onClick={() => onOpenDetail(p)} style={{ cursor: 'pointer' }}>
+                    <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{p.pdcId}</td>
+                    <td><span className="pill" style={{ background: p.dir === 'IN' ? 'var(--teal-lt)' : 'var(--gold-lt)', color: p.dir === 'IN' ? 'var(--teal-700)' : 'var(--gold)' }}>{p.dir}</span></td>
+                    <td className="td-mono">{p.cheque}</td>
+                    <td className="td-mono">{p.maturity}</td>
+                    <td><span className="pill" style={{ background: aging.bg, color: aging.color }}>{aging.label}</span></td>
+                    <td className="td-bold" style={{ fontSize: 12.5 }}>{p.party}</td>
+                    <td>{p.bank}</td>
+                    <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
+                    <td><span className="pill" style={{ background: ss?.bg, color: ss?.fg }}>{p.status}</span></td>
+                    <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
 };
 
-// ── New PDC tab (4-step form) ─────────────────────────────────────────────
-const NewPDCTab = () => (
-  <div className="card" style={{ padding: 26 }}>
-    <div className="pdc-step">
-      <div className="pdc-step-num">1</div>
-      <div style={{ flex: 1 }}>
-        <h3 className="pdc-step-title">Direction & Party</h3>
-        <div className="form-grid">
-          <div className="ff"><label className="f-label">Direction *</label><select className="f-input"><option>Inward (Received)</option><option>Outward (Issued)</option></select></div>
-          <div className="ff"><label className="f-label">Party *</label><select className="f-input">{PARTIES.map(p => <option key={p}>{p}</option>)}</select></div>
-          <div className="ff s2"><label className="f-label">Purpose / Category</label><input className="f-input" placeholder="e.g. Invoice payment, Security deposit, Advance..." /></div>
-        </div>
-      </div>
-    </div>
+// ── New PDC tab ───────────────────────────────────────────────────────────
+const blankPdc = () => ({
+  dir: 'IN', cheque: '', chequeDate: '', receiptDate: '', maturity: '',
+  party: '', bank: '', bankBranch: '', ifsc: '', acct: '', accountHolder: '', micr: '',
+  amount: 0, status: 'In Custody', custody: '', custodian: '', safe: '', depositAccount: '',
+  invoiceRef: '', internalRef: '', purpose: '', remarks: '',
+});
 
-    <div className="pdc-step">
-      <div className="pdc-step-num">2</div>
-      <div style={{ flex: 1 }}>
-        <h3 className="pdc-step-title">Cheque Particulars</h3>
-        <div className="form-grid">
-          <div className="ff"><label className="f-label">Cheque # *</label><input className="f-input" placeholder="6-digit cheque number" /></div>
-          <div className="ff"><label className="f-label">Cheque Date *</label><input className="f-input" type="date" /></div>
-          <div className="ff"><label className="f-label">Receipt Date</label><input className="f-input" type="date" /></div>
-          <div className="ff"><label className="f-label">Amount (₹) *</label><input className="f-input" type="number" /></div>
-          <div className="ff"><label className="f-label">Drawer Bank *</label><select className="f-input">{DRAWER_BANKS.map(b => <option key={b}>{b}</option>)}</select></div>
-          <div className="ff"><label className="f-label">Bank Branch</label><input className="f-input" /></div>
-          <div className="ff"><label className="f-label">IFSC</label><input className="f-input" placeholder="ABCD0001234" /></div>
-          <div className="ff"><label className="f-label">Account Holder</label><input className="f-input" /></div>
-          <div className="ff s2"><label className="f-label">MICR (optional)</label><input className="f-input" /></div>
-        </div>
-      </div>
-    </div>
+const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
+  const [form, setForm] = useState(blankPdc());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-    <div className="pdc-step">
-      <div className="pdc-step-num">3</div>
-      <div style={{ flex: 1 }}>
-        <h3 className="pdc-step-title">Linkage & Custody</h3>
-        <div className="form-grid">
-          <div className="ff"><label className="f-label">Invoice / Reference</label><input className="f-input" placeholder="Invoice ID, contract, etc." /></div>
-          <div className="ff"><label className="f-label">Custody Branch *</label><select className="f-input">{BRANCHES.map(b => <option key={b.code}>{b.code} — {b.name}</option>)}</select></div>
-          <div className="ff"><label className="f-label">Custodian</label><input className="f-input" placeholder="Person holding cheque" /></div>
-          <div className="ff"><label className="f-label">Safe / Locker</label><input className="f-input" /></div>
-          <div className="ff"><label className="f-label">Receiving Bank Account</label><select className="f-input">{BANK_ACCOUNTS.map(a => <option key={a.acct}>{a.nick} — {a.bank}</option>)}</select></div>
-          <div className="ff"><label className="f-label">Internal Reference</label><input className="f-input" /></div>
-          <div className="ff s2"><label className="f-label">Remarks</label><textarea className="f-input" rows={2} /></div>
-        </div>
-      </div>
-    </div>
+  const upd = (k, v) => setForm(s => ({ ...s, [k]: v }));
 
-    <div className="pdc-step">
-      <div className="pdc-step-num">4</div>
-      <div style={{ flex: 1 }}>
-        <h3 className="pdc-step-title">Cheque Image Upload</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div className="pdc-drop">
-            <div className="pdc-drop-icon">📄</div>
-            <div className="td-bold">Front</div>
-            <div style={{ fontSize: 11, color: 'var(--ink4)' }}>Drag & drop or click to upload</div>
-          </div>
-          <div className="pdc-drop">
-            <div className="pdc-drop-icon">📄</div>
-            <div className="td-bold">Back</div>
-            <div style={{ fontSize: 11, color: 'var(--ink4)' }}>Drag & drop or click to upload</div>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.cheque || !form.maturity || !form.party || !form.bank || !form.amount || !form.custody) {
+      setError('Cheque #, maturity, party, bank, amount and custody branch are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await createPdc(form);
+      onSaved(saved);
+      onShowToast?.(`Created ${saved.pdcId}`);
+      setForm(blankPdc());
+    } catch (err) {
+      setError(err.message || 'Failed to create PDC');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="card" style={{ padding: 26 }} onSubmit={handleSubmit}>
+      {error && <div className="lr-error" style={{ marginBottom: 14 }}>{error}</div>}
+
+      <div className="pdc-step">
+        <div className="pdc-step-num">1</div>
+        <div style={{ flex: 1 }}>
+          <h3 className="pdc-step-title">Direction & Party</h3>
+          <div className="form-grid">
+            <div className="ff"><label className="f-label">Direction *</label><select className="f-input" value={form.dir} onChange={e => upd('dir', e.target.value)}><option value="IN">Inward (Received)</option><option value="OUT">Outward (Issued)</option></select></div>
+            <div className="ff"><label className="f-label">Party *</label>
+              <input className="f-input" list="party-list" value={form.party} onChange={e => upd('party', e.target.value)} placeholder="Type or pick..." />
+              <datalist id="party-list">{parties.map(p => <option key={p._id} value={p.name} />)}</datalist>
+            </div>
+            <div className="ff s2"><label className="f-label">Purpose / Category</label><input className="f-input" value={form.purpose} onChange={e => upd('purpose', e.target.value)} placeholder="Invoice payment, security deposit, etc." /></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, borderTop: '1px solid var(--rule)', paddingTop: 18 }}>
-      <button className="btn btn-ghost">Clear Form</button>
-      <button className="btn btn-ghost">Cancel</button>
-      <button className="btn btn-primary">Save & Lodge in Custody</button>
-    </div>
-  </div>
-);
+      <div className="pdc-step">
+        <div className="pdc-step-num">2</div>
+        <div style={{ flex: 1 }}>
+          <h3 className="pdc-step-title">Cheque Particulars</h3>
+          <div className="form-grid">
+            <div className="ff"><label className="f-label">Cheque # *</label><input className="f-input" value={form.cheque} onChange={e => upd('cheque', e.target.value)} placeholder="6-digit cheque number" /></div>
+            <div className="ff"><label className="f-label">Cheque Date</label><input className="f-input" type="date" value={form.chequeDate} onChange={e => upd('chequeDate', e.target.value)} /></div>
+            <div className="ff"><label className="f-label">Receipt Date</label><input className="f-input" type="date" value={form.receiptDate} onChange={e => upd('receiptDate', e.target.value)} /></div>
+            <div className="ff"><label className="f-label">Maturity Date *</label><input className="f-input" type="date" value={form.maturity} onChange={e => upd('maturity', e.target.value)} required /></div>
+            <div className="ff"><label className="f-label">Amount (₹) *</label><input className="f-input" type="number" value={form.amount} onChange={e => upd('amount', e.target.value)} required /></div>
+            <div className="ff"><label className="f-label">Drawer Bank *</label><input className="f-input" value={form.bank} onChange={e => upd('bank', e.target.value)} placeholder="HDFC, ICICI, etc." /></div>
+            <div className="ff"><label className="f-label">Bank Branch</label><input className="f-input" value={form.bankBranch} onChange={e => upd('bankBranch', e.target.value)} /></div>
+            <div className="ff"><label className="f-label">IFSC</label><input className="f-input" value={form.ifsc} onChange={e => upd('ifsc', e.target.value)} placeholder="ABCD0001234" /></div>
+            <div className="ff"><label className="f-label">Account Holder</label><input className="f-input" value={form.accountHolder} onChange={e => upd('accountHolder', e.target.value)} /></div>
+            <div className="ff"><label className="f-label">Account Number</label><input className="f-input" value={form.acct} onChange={e => upd('acct', e.target.value)} /></div>
+            <div className="ff s2"><label className="f-label">MICR (optional)</label><input className="f-input" value={form.micr} onChange={e => upd('micr', e.target.value)} /></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pdc-step">
+        <div className="pdc-step-num">3</div>
+        <div style={{ flex: 1 }}>
+          <h3 className="pdc-step-title">Linkage & Custody</h3>
+          <div className="form-grid">
+            <div className="ff"><label className="f-label">Invoice / Reference</label><input className="f-input" value={form.invoiceRef} onChange={e => upd('invoiceRef', e.target.value)} /></div>
+            <div className="ff">
+              <label className="f-label">Custody Branch *</label>
+              <input className="f-input" list="branch-list" value={form.custody} onChange={e => upd('custody', e.target.value)} placeholder={branches.length ? "Type or pick…" : "e.g. MUM-01 — add branches in Masters tab"} required />
+              <datalist id="branch-list">{branches.map(b => <option key={b._id} value={b.code}>{b.code} — {b.name}</option>)}</datalist>
+            </div>
+            <div className="ff"><label className="f-label">Custodian</label><input className="f-input" value={form.custodian} onChange={e => upd('custodian', e.target.value)} placeholder="Person holding cheque" /></div>
+            <div className="ff"><label className="f-label">Safe / Locker</label><input className="f-input" value={form.safe} onChange={e => upd('safe', e.target.value)} /></div>
+            <div className="ff">
+              <label className="f-label">Receiving Bank Account</label>
+              <input className="f-input" list="bank-list" value={form.depositAccount} onChange={e => upd('depositAccount', e.target.value)} placeholder={banks.length ? "Type or pick…" : "Optional — add accounts in Banking tab"} />
+              <datalist id="bank-list">{banks.map(a => <option key={a._id} value={a.nick}>{a.nick} — {a.bank}</option>)}</datalist>
+            </div>
+            <div className="ff"><label className="f-label">Internal Reference</label><input className="f-input" value={form.internalRef} onChange={e => upd('internalRef', e.target.value)} /></div>
+            <div className="ff s2"><label className="f-label">Remarks</label><textarea className="f-input" rows={2} value={form.remarks} onChange={e => upd('remarks', e.target.value)} /></div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, borderTop: '1px solid var(--rule)', paddingTop: 18 }}>
+        <button type="button" className="btn btn-ghost" onClick={() => setForm(blankPdc())} disabled={saving}>Clear Form</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save & Lodge in Custody'}</button>
+      </div>
+    </form>
+  );
+};
 
 // ── Banking tab ──────────────────────────────────────────────────────────
-const BankingTab = () => (
-  <div>
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-hd"><div className="card-title">Bank Accounts</div><button className="btn btn-primary btn-sm">+ Add Account</button></div>
-      <table>
-        <thead><tr><th>Nickname</th><th>Bank</th><th>Branch</th><th>Account #</th><th>IFSC</th><th>Type</th><th></th></tr></thead>
-        <tbody>
-          {BANK_ACCOUNTS.map(a => (
-            <tr key={a.acct}>
-              <td className="td-bold">{a.nick}</td>
-              <td>{a.bank}</td>
-              <td>{a.branch}</td>
-              <td className="td-mono">{a.acct}</td>
-              <td className="td-mono">{a.ifsc}</td>
-              <td>{a.type}</td>
-              <td><button className="btn btn-ghost btn-sm">Edit</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+const BankingTab = ({ pdcs, banks, onAddBank, onDeleteBank, onShowToast }) => {
+  const [showBank, setShowBank] = useState(false);
+  const [form, setForm] = useState({ nick: '', bank: '', branch: '', acct: '', ifsc: '', type: 'Current' });
 
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-hd"><div className="card-title">Cheques Ready for Presentation</div><button className="btn btn-primary btn-sm">Create Batch</button></div>
-      <table>
-        <thead><tr><th><input type="checkbox" /></th><th>Maturity</th><th>Cheque #</th><th>Party</th><th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th><th>Custody</th></tr></thead>
-        <tbody>
-          {SAMPLE_PDCS.filter(p => p.status === 'In Custody' && p.dir === 'IN').map(p => (
-            <tr key={p.id}>
-              <td><input type="checkbox" /></td>
-              <td className="td-mono">{p.maturity}</td>
-              <td className="td-mono">{p.cheque}</td>
-              <td className="td-bold">{p.party}</td>
-              <td>{p.bank}</td>
-              <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
-              <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      const saved = await createBankAccount(form);
+      onAddBank(saved);
+      setForm({ nick: '', bank: '', branch: '', acct: '', ifsc: '', type: 'Current' });
+      setShowBank(false);
+      onShowToast?.('Bank account added');
+    } catch (err) {
+      onShowToast?.(err.message || 'Failed to save');
+    }
+  };
 
-    <div className="card">
-      <div className="card-hd"><div className="card-title">Presentation Batches</div></div>
-      <table>
-        <thead><tr><th>Batch ID</th><th>Date</th><th>Deposit Account</th><th style={{ textAlign: 'right' }}>Cheques</th><th style={{ textAlign: 'right' }}>Total</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          <tr><td className="td-mono">BATCH-2026-118</td><td className="td-mono">2026-05-06</td><td>Operating-A</td><td className="td-mono" style={{ textAlign: 'right' }}>4</td><td className="td-mono" style={{ textAlign: 'right' }}>{inr(820000)}</td><td><span className="pill" style={{ background: 'var(--teal-lt)', color: 'var(--teal-700)' }}>Realised</span></td><td><button className="btn btn-ghost btn-sm">View</button></td></tr>
-          <tr><td className="td-mono">BATCH-2026-117</td><td className="td-mono">2026-05-04</td><td>Operating-B</td><td className="td-mono" style={{ textAlign: 'right' }}>2</td><td className="td-mono" style={{ textAlign: 'right' }}>{inr(176000)}</td><td><span className="pill" style={{ background: 'var(--gold-lt)', color: 'var(--gold)' }}>In Clearing</span></td><td><button className="btn btn-ghost btn-sm">View</button></td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+  const ready = pdcs.filter(p => p.status === 'In Custody' && p.dir === 'IN');
 
-// ── Bounce Register tab ──────────────────────────────────────────────────
-const BounceTab = () => {
-  const bounced = SAMPLE_PDCS.filter(p => p.status === 'Bounced');
-  const totalBounced = bounced.reduce((s, p) => s + p.amount, 0);
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-hd"><div className="card-title">Bank Accounts</div><button className="btn btn-primary btn-sm" onClick={() => setShowBank(true)}>+ Add Account</button></div>
+        {banks.length === 0 ? <div className="empty"><p>No bank accounts yet.</p></div> : (
+          <table>
+            <thead><tr><th>Nickname</th><th>Bank</th><th>Branch</th><th>Account #</th><th>IFSC</th><th>Type</th><th></th></tr></thead>
+            <tbody>
+              {banks.map(a => (
+                <tr key={a._id}>
+                  <td className="td-bold">{a.nick}</td>
+                  <td>{a.bank}</td>
+                  <td>{a.branch}</td>
+                  <td className="td-mono">{a.acct}</td>
+                  <td className="td-mono">{a.ifsc}</td>
+                  <td>{a.type}</td>
+                  <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)' }} onClick={() => onDeleteBank(a._id)}>Delete</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-hd"><div className="card-title">Cheques Ready for Presentation</div></div>
+        {ready.length === 0 ? <div className="empty"><p>No cheques in custody waiting for presentation.</p></div> : (
+          <table>
+            <thead><tr><th>Maturity</th><th>Cheque #</th><th>Party</th><th>Bank</th><th style={{ textAlign: 'right' }}>Amount</th><th>Custody</th></tr></thead>
+            <tbody>
+              {ready.map(p => (
+                <tr key={p._id}>
+                  <td className="td-mono">{p.maturity}</td>
+                  <td className="td-mono">{p.cheque}</td>
+                  <td className="td-bold">{p.party}</td>
+                  <td>{p.bank}</td>
+                  <td className="td-mono" style={{ textAlign: 'right' }}>{inr(p.amount)}</td>
+                  <td className="td-mono" style={{ fontSize: 11 }}>{p.custody}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showBank && (
+        <div className="modal-back open" onClick={() => setShowBank(false)}>
+          <form className="modal" onClick={e => e.stopPropagation()} onSubmit={submit} style={{ width: 480 }}>
+            <div className="modal-hd"><div><div className="modal-title">Add Bank Account</div></div><button type="button" className="drawer-close" onClick={() => setShowBank(false)}>×</button></div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="ff"><label className="f-label">Nickname *</label><input className="f-input" value={form.nick} onChange={e => setForm({ ...form, nick: e.target.value })} required /></div>
+                <div className="ff"><label className="f-label">Bank *</label><input className="f-input" value={form.bank} onChange={e => setForm({ ...form, bank: e.target.value })} required /></div>
+                <div className="ff"><label className="f-label">Branch</label><input className="f-input" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} /></div>
+                <div className="ff"><label className="f-label">Type</label><select className="f-input" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}><option>Current</option><option>Savings</option><option>Cash Credit</option></select></div>
+                <div className="ff"><label className="f-label">Account # *</label><input className="f-input" value={form.acct} onChange={e => setForm({ ...form, acct: e.target.value })} required /></div>
+                <div className="ff"><label className="f-label">IFSC</label><input className="f-input" value={form.ifsc} onChange={e => setForm({ ...form, ifsc: e.target.value })} /></div>
+              </div>
+            </div>
+            <div className="modal-ft"><button type="button" className="btn btn-ghost" onClick={() => setShowBank(false)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Bounce tab ────────────────────────────────────────────────────────────
+const BounceTab = ({ pdcs }) => {
+  const bounced = pdcs.filter(p => p.status === 'Bounced');
+  const totalBounced = bounced.reduce((s, p) => s + (p.amount || 0), 0);
 
   return (
     <div>
       <div className="kpi-strip cols4" style={{ marginBottom: 16 }}>
         <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--coral)' }} /><div className="kpi-ey">Bounced (Open)</div><div className="kpi-val" style={{ color: 'var(--coral)' }}>{inrShort(totalBounced)}</div><div className="kpi-desc">{bounced.length} cheques</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--gold)' }} /><div className="kpi-ey">Re-presented</div><div className="kpi-val" style={{ color: 'var(--gold)' }}>0</div><div className="kpi-desc">cheques in second clearing</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#92400e' }} /><div className="kpi-ey">Legal Notice Pending</div><div className="kpi-val">{bounced.length}</div><div className="kpi-desc">past 30-day window</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--teal-700)' }} /><div className="kpi-ey">Recovered (FY)</div><div className="kpi-val" style={{ color: 'var(--teal-700)' }}>{inrShort(425000)}</div><div className="kpi-desc">8 cheques resolved</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--gold)' }} /><div className="kpi-ey">Re-presented</div><div className="kpi-val" style={{ color: 'var(--gold)' }}>{pdcs.filter(p => p.status === 'Re-presented').length}</div><div className="kpi-desc">cheques in second clearing</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#92400e' }} /><div className="kpi-ey">Legal Action</div><div className="kpi-val">{pdcs.filter(p => p.status === 'Legal Action').length}</div><div className="kpi-desc">in S.138 process</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--teal-700)' }} /><div className="kpi-ey">Recovered</div><div className="kpi-val" style={{ color: 'var(--teal-700)' }}>0</div><div className="kpi-desc">cheques resolved</div></div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-hd"><div className="card-title">Bounced Cheques</div></div>
-        <table>
-          <thead>
-            <tr>
-              <th>Bounce Date</th><th>Cheque #</th><th>Party</th><th style={{ textAlign: 'right' }}>Amount</th>
-              <th>Return Reason</th><th style={{ textAlign: 'right' }}>Bank Charges</th>
-              <th>Action Taken</th><th>S.138 Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bounced.map(p => (
-              <tr key={p.id}>
-                <td className="td-mono">2026-05-{p.id.slice(-1)}{p.id.slice(-1)}</td>
-                <td className="td-mono">{p.cheque}</td>
-                <td className="td-bold">{p.party}</td>
-                <td className="td-mono" style={{ textAlign: 'right', color: 'var(--coral)' }}>{inr(p.amount)}</td>
-                <td style={{ fontSize: 11.5 }}>01 — Funds insufficient</td>
-                <td className="td-mono" style={{ textAlign: 'right' }}>₹500</td>
-                <td>Notice drafted</td>
-                <td><span className="pill" style={{ background: '#fef3c7', color: '#92400e' }}>Step 1 / 3</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {bounced.length === 0 ? <div className="empty"><p>No bounced cheques 🎉</p></div> : (
+          <table>
+            <thead><tr><th>Bounce Date</th><th>Cheque #</th><th>Party</th><th style={{ textAlign: 'right' }}>Amount</th><th>Return Reason</th><th>Action Taken</th><th>S.138 Step</th></tr></thead>
+            <tbody>
+              {bounced.map(p => (
+                <tr key={p._id}>
+                  <td className="td-mono">{p.bounce?.bounceDate || '—'}</td>
+                  <td className="td-mono">{p.cheque}</td>
+                  <td className="td-bold">{p.party}</td>
+                  <td className="td-mono" style={{ textAlign: 'right', color: 'var(--coral)' }}>{inr(p.amount)}</td>
+                  <td style={{ fontSize: 11.5 }}>{p.bounce?.returnReason || '—'}</td>
+                  <td>{p.bounce?.actionTaken || '—'}</td>
+                  <td><span className="pill" style={{ background: '#fef3c7', color: '#92400e' }}>Step {p.bounce?.s138Step || 0} / 3</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="card">
         <div className="card-hd"><div className="card-title">Section 138 NI Act — Statutory Timeline</div></div>
         <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-          <div className="pdc-step138">
-            <div className="pdc-step138-num">1</div>
-            <h4>Re-present</h4>
-            <p>Re-present cheque within <b>3 months</b> of original date.</p>
-          </div>
-          <div className="pdc-step138">
-            <div className="pdc-step138-num">2</div>
-            <h4>Legal Notice</h4>
-            <p>If bounced again, issue legal demand notice within <b>30 days</b> of memo.</p>
-          </div>
-          <div className="pdc-step138">
-            <div className="pdc-step138-num">3</div>
-            <h4>File Complaint</h4>
-            <p>File criminal complaint within <b>30 days</b> after expiry of notice period.</p>
-          </div>
+          <div className="pdc-step138"><div className="pdc-step138-num">1</div><h4>Re-present</h4><p>Re-present cheque within <b>3 months</b> of original date.</p></div>
+          <div className="pdc-step138"><div className="pdc-step138-num">2</div><h4>Legal Notice</h4><p>If bounced again, issue legal demand notice within <b>30 days</b> of memo.</p></div>
+          <div className="pdc-step138"><div className="pdc-step138-num">3</div><h4>File Complaint</h4><p>File criminal complaint within <b>30 days</b> after expiry of notice period.</p></div>
         </div>
       </div>
     </div>
@@ -443,16 +468,66 @@ const BounceTab = () => {
 };
 
 // ── Reports tab ──────────────────────────────────────────────────────────
-const ReportsTab = () => {
+const ReportsTab = ({ pdcs }) => {
   const [active, setActive] = useState(null);
   const reports = [
-    { id: 'aging', name: 'Aging Report', desc: 'Custody age buckets, drill into urgent items' },
+    { id: 'aging', name: 'Aging Report', desc: 'Custody age buckets' },
     { id: 'party', name: 'Party-wise Summary', desc: 'PDC volume & value rolled up by party' },
     { id: 'bank', name: 'Bank-wise Summary', desc: 'Concentration by drawer bank' },
-    { id: 'branch', name: 'Branch Custody', desc: 'Cheques held by each branch / custodian' },
-    { id: 'cat', name: 'Purpose Category Mix', desc: 'Distribution of cheques by purpose' },
-    { id: 'bounce', name: 'Bounce Trend & Recovery', desc: '12-month trend, recovery %, S.138 progress' },
+    { id: 'branch', name: 'Branch Custody', desc: 'Cheques held by each branch' },
+    { id: 'cat', name: 'Purpose Category Mix', desc: 'Distribution by purpose' },
+    { id: 'bounce', name: 'Bounce Trend & Recovery', desc: 'Bounced trend & S.138 progress' },
   ];
+
+  const renderReport = () => {
+    if (!active) return null;
+    let rows = [];
+    if (active === 'party') {
+      const map = {};
+      pdcs.forEach(p => { map[p.party] = map[p.party] || { name: p.party, count: 0, value: 0 }; map[p.party].count++; map[p.party].value += p.amount; });
+      rows = Object.values(map).sort((a, b) => b.value - a.value);
+      return <ReportTable rows={rows} cols={[['name', 'Party'], ['count', 'Cheques', 'right'], ['value', 'Total Value', 'right', 'inr']]} />;
+    }
+    if (active === 'bank') {
+      const map = {};
+      pdcs.forEach(p => { map[p.bank] = map[p.bank] || { name: p.bank, count: 0, value: 0 }; map[p.bank].count++; map[p.bank].value += p.amount; });
+      rows = Object.values(map).sort((a, b) => b.value - a.value);
+      return <ReportTable rows={rows} cols={[['name', 'Bank'], ['count', 'Cheques', 'right'], ['value', 'Total Value', 'right', 'inr']]} />;
+    }
+    if (active === 'branch') {
+      const map = {};
+      pdcs.forEach(p => { map[p.custody] = map[p.custody] || { code: p.custody, count: 0, value: 0 }; map[p.custody].count++; map[p.custody].value += p.amount; });
+      rows = Object.values(map);
+      return <ReportTable rows={rows} cols={[['code', 'Branch'], ['count', 'Cheques', 'right'], ['value', 'Total Value', 'right', 'inr']]} />;
+    }
+    if (active === 'cat') {
+      const map = {};
+      pdcs.forEach(p => { const k = p.purpose || 'Unspecified'; map[k] = map[k] || { name: k, count: 0, value: 0 }; map[k].count++; map[k].value += p.amount; });
+      rows = Object.values(map);
+      return <ReportTable rows={rows} cols={[['name', 'Purpose'], ['count', 'Cheques', 'right'], ['value', 'Total Value', 'right', 'inr']]} />;
+    }
+    if (active === 'aging') {
+      const buckets = [
+        { name: 'Today / Future', filter: p => daysFromNow(p.maturity) >= 0 && p.status === 'In Custody' },
+        { name: 'Overdue 1-7d', filter: p => daysFromNow(p.maturity) < 0 && daysFromNow(p.maturity) >= -7 && p.status !== 'Cleared' },
+        { name: 'Overdue 7-30d', filter: p => daysFromNow(p.maturity) < -7 && daysFromNow(p.maturity) >= -30 && p.status !== 'Cleared' },
+        { name: 'Stale 30+d', filter: p => daysFromNow(p.maturity) < -30 && p.status !== 'Cleared' },
+      ];
+      rows = buckets.map(b => { const items = pdcs.filter(b.filter); return { name: b.name, count: items.length, value: items.reduce((s, p) => s + p.amount, 0) }; });
+      return <ReportTable rows={rows} cols={[['name', 'Bucket'], ['count', 'Cheques', 'right'], ['value', 'Total Value', 'right', 'inr']]} />;
+    }
+    if (active === 'bounce') {
+      const bounced = pdcs.filter(p => p.status === 'Bounced');
+      const cleared = pdcs.filter(p => p.status === 'Cleared');
+      const total = pdcs.length || 1;
+      rows = [
+        { name: 'Bounced', count: bounced.length, value: bounced.reduce((s, p) => s + p.amount, 0) },
+        { name: 'Cleared', count: cleared.length, value: cleared.reduce((s, p) => s + p.amount, 0) },
+        { name: 'Bounce Rate', count: `${(bounced.length / total * 100).toFixed(1)}%`, value: '' },
+      ];
+      return <ReportTable rows={rows} cols={[['name', 'Metric'], ['count', 'Count'], ['value', 'Value', 'right']]} />;
+    }
+  };
 
   return (
     <div>
@@ -467,140 +542,252 @@ const ReportsTab = () => {
 
       {active && (
         <div className="card">
-          <div className="card-hd"><div className="card-title">{reports.find(r => r.id === active).name} — Output</div><button className="btn btn-ghost btn-sm">Export</button></div>
-          <div style={{ padding: 28, color: 'var(--ink3)', textAlign: 'center', fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}>
-            Report data renders here once data sources are wired.
-          </div>
+          <div className="card-hd"><div className="card-title">{reports.find(r => r.id === active).name}</div></div>
+          {renderReport()}
         </div>
       )}
     </div>
   );
 };
 
-// ── Masters tab ──────────────────────────────────────────────────────────
-const MastersTab = () => (
-  <div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
-      <div className="card">
-        <div className="card-hd"><div className="card-title">Parties</div><button className="btn btn-primary btn-sm">+ Add</button></div>
-        <div style={{ padding: '4px 0' }}>{PARTIES.map(p => <div key={p} className="pdc-master-row">{p}</div>)}</div>
-      </div>
-      <div className="card">
-        <div className="card-hd"><div className="card-title">Branches</div><button className="btn btn-primary btn-sm">+ Add</button></div>
-        <div style={{ padding: '4px 0' }}>{BRANCHES.map(b => <div key={b.code} className="pdc-master-row"><b>{b.code}</b> — {b.name}</div>)}</div>
-      </div>
-      <div className="card">
-        <div className="card-hd"><div className="card-title">Drawer Banks</div><button className="btn btn-primary btn-sm">+ Add</button></div>
-        <div style={{ padding: '4px 0' }}>{DRAWER_BANKS.map(b => <div key={b} className="pdc-master-row">{b}</div>)}</div>
-      </div>
-    </div>
+const ReportTable = ({ rows, cols }) => {
+  if (!rows.length) return <div className="empty"><p>No data.</p></div>;
+  return (
+    <table>
+      <thead><tr>{cols.map(c => <th key={c[0]} style={{ textAlign: c[2] === 'right' ? 'right' : 'left' }}>{c[1]}</th>)}</tr></thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>{cols.map(c => {
+            const val = r[c[0]];
+            const align = c[2] === 'right' ? 'right' : 'left';
+            const fmt = c[3] === 'inr' ? inr(val) : val;
+            const cls = ['number', 'right'].includes(c[2]) ? 'td-mono' : '';
+            return <td key={c[0]} className={cls} style={{ textAlign: align }}>{fmt}</td>;
+          })}</tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
 
-    <div className="card">
-      <div className="card-hd"><div className="card-title">Admin</div></div>
-      <div style={{ padding: 18, display: 'flex', gap: 8 }}>
-        <button className="btn btn-ghost">Backup JSON</button>
-        <button className="btn btn-ghost">Restore from Backup</button>
-        <button className="btn" style={{ background: 'var(--coral-lt)', color: 'var(--coral)', border: '1px solid var(--coral)' }}>Reset to Seed Data</button>
+// ── Masters tab ──────────────────────────────────────────────────────────
+const MastersTab = ({ parties, branches, banks, onAddParty, onDelParty, onAddBranch, onDelBranch, onShowToast }) => {
+  const [showParty, setShowParty] = useState(false);
+  const [showBranch, setShowBranch] = useState(false);
+  const [partyForm, setPartyForm] = useState({ name: '', gstin: '', contact: '', type: 'both' });
+  const [branchForm, setBranchForm] = useState({ code: '', name: '', city: '' });
+
+  const submitParty = async (e) => {
+    e.preventDefault();
+    try { const saved = await createParty(partyForm); onAddParty(saved); setShowParty(false); setPartyForm({ name: '', gstin: '', contact: '', type: 'both' }); onShowToast?.('Party added'); }
+    catch (err) { onShowToast?.(err.message); }
+  };
+  const submitBranch = async (e) => {
+    e.preventDefault();
+    try { const saved = await createBranch(branchForm); onAddBranch(saved); setShowBranch(false); setBranchForm({ code: '', name: '', city: '' }); onShowToast?.('Branch added'); }
+    catch (err) { onShowToast?.(err.message); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div className="card">
+          <div className="card-hd"><div className="card-title">Parties</div><button className="btn btn-primary btn-sm" onClick={() => setShowParty(true)}>+ Add</button></div>
+          {parties.length === 0 ? <div style={{ padding: 20, color: 'var(--ink4)', textAlign: 'center' }}>No parties yet</div> :
+            parties.map(p => (
+              <div key={p._id} className="pdc-master-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div><b>{p.name}</b>{p.gstin && <span style={{ fontSize: 10, color: 'var(--ink4)', marginLeft: 6, fontFamily: "'JetBrains Mono',monospace" }}>{p.gstin}</span>}</div>
+                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)' }} onClick={() => onDelParty(p._id)}>×</button>
+              </div>
+            ))
+          }
+        </div>
+        <div className="card">
+          <div className="card-hd"><div className="card-title">Branches</div><button className="btn btn-primary btn-sm" onClick={() => setShowBranch(true)}>+ Add</button></div>
+          {branches.length === 0 ? <div style={{ padding: 20, color: 'var(--ink4)', textAlign: 'center' }}>No branches yet</div> :
+            branches.map(b => (
+              <div key={b._id} className="pdc-master-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div><b>{b.code}</b> — {b.name}</div>
+                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)' }} onClick={() => onDelBranch(b._id)}>×</button>
+              </div>
+            ))
+          }
+        </div>
+        <div className="card">
+          <div className="card-hd"><div className="card-title">Bank Accounts</div></div>
+          {banks.length === 0 ? <div style={{ padding: 20, color: 'var(--ink4)', textAlign: 'center' }}>Add via Banking tab</div> :
+            banks.map(a => <div key={a._id} className="pdc-master-row"><b>{a.nick}</b> — {a.bank}</div>)
+          }
+        </div>
       </div>
+
+      {showParty && (
+        <div className="modal-back open" onClick={() => setShowParty(false)}>
+          <form className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()} onSubmit={submitParty}>
+            <div className="modal-hd"><div><div className="modal-title">Add Party</div></div><button type="button" className="drawer-close" onClick={() => setShowParty(false)}>×</button></div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="ff s2"><label className="f-label">Name *</label><input className="f-input" value={partyForm.name} onChange={e => setPartyForm({ ...partyForm, name: e.target.value })} required /></div>
+                <div className="ff"><label className="f-label">GSTIN</label><input className="f-input" value={partyForm.gstin} onChange={e => setPartyForm({ ...partyForm, gstin: e.target.value })} /></div>
+                <div className="ff"><label className="f-label">Type</label><select className="f-input" value={partyForm.type} onChange={e => setPartyForm({ ...partyForm, type: e.target.value })}><option value="customer">Customer</option><option value="vendor">Vendor</option><option value="both">Both</option></select></div>
+                <div className="ff s2"><label className="f-label">Contact</label><input className="f-input" value={partyForm.contact} onChange={e => setPartyForm({ ...partyForm, contact: e.target.value })} placeholder="Phone / email" /></div>
+              </div>
+            </div>
+            <div className="modal-ft"><button type="button" className="btn btn-ghost" onClick={() => setShowParty(false)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
+          </form>
+        </div>
+      )}
+      {showBranch && (
+        <div className="modal-back open" onClick={() => setShowBranch(false)}>
+          <form className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()} onSubmit={submitBranch}>
+            <div className="modal-hd"><div><div className="modal-title">Add Branch</div></div><button type="button" className="drawer-close" onClick={() => setShowBranch(false)}>×</button></div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="ff"><label className="f-label">Code *</label><input className="f-input" value={branchForm.code} onChange={e => setBranchForm({ ...branchForm, code: e.target.value })} placeholder="MUM-01" required /></div>
+                <div className="ff"><label className="f-label">Name *</label><input className="f-input" value={branchForm.name} onChange={e => setBranchForm({ ...branchForm, name: e.target.value })} required /></div>
+                <div className="ff s2"><label className="f-label">City</label><input className="f-input" value={branchForm.city} onChange={e => setBranchForm({ ...branchForm, city: e.target.value })} /></div>
+              </div>
+            </div>
+            <div className="modal-ft"><button type="button" className="btn btn-ghost" onClick={() => setShowBranch(false)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
+          </form>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ── Audit Log tab ─────────────────────────────────────────────────────────
-const AuditTab = () => {
+const AuditTab = ({ pdcs }) => {
   const [search, setSearch] = useState('');
-  const [act, setAct] = useState('All');
-  const filtered = AUDIT_LOG.filter(l => {
-    if (act !== 'All' && l.action !== act) return false;
-    if (search && !`${l.pdc}${l.user}${l.action}${l.details}`.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+
+  const log = useMemo(() => {
+    const arr = [];
+    pdcs.forEach(p => (p.timeline || []).forEach(t => arr.push({ ...t, pdcId: p.pdcId })));
+    return arr.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  }, [pdcs]);
+
+  const filtered = log.filter(l => !search || `${l.pdcId}${l.user}${l.event}${l.desc}`.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
       <div className="filter-strip" style={{ marginBottom: 14, borderRadius: 10, border: '1px solid var(--rule)', background: 'var(--white)' }}>
-        <input className="f-input" style={{ width: 280, padding: '6px 10px' }} placeholder="Search PDC ID, user, action..." value={search} onChange={e => setSearch(e.target.value)} />
-        <select className="f-input" style={{ width: 200, padding: '6px 10px' }} value={act} onChange={e => setAct(e.target.value)}>
-          <option>All</option>
-          {['CREATED', 'STATUS_CHANGE', 'CUSTODY_TRANSFER', 'IMAGE_UPLOAD', 'EDITED', 'BOUNCED', 'CLEARED'].map(a => <option key={a}>{a}</option>)}
-        </select>
+        <input className="f-input" style={{ width: 280, padding: '6px 10px' }} placeholder="Search PDC ID, user, event..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
       <div className="card">
-        <table>
-          <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>PDC ID</th><th>Details</th></tr></thead>
-          <tbody>
-            {filtered.map((l, i) => (
-              <tr key={i}>
-                <td className="td-mono" style={{ fontSize: 11 }}>{l.ts}</td>
-                <td className="td-bold">{l.user}</td>
-                <td><span className="pill" style={{ background: 'var(--bg)', color: 'var(--ink2)' }}>{l.action}</span></td>
-                <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{l.pdc}</td>
-                <td style={{ fontSize: 12.5 }}>{l.details}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {filtered.length === 0 ? <div className="empty"><p>No audit events yet.</p></div> : (
+          <table>
+            <thead><tr><th>Timestamp</th><th>User</th><th>Event</th><th>PDC ID</th><th>Details</th></tr></thead>
+            <tbody>
+              {filtered.map((l, i) => (
+                <tr key={i}>
+                  <td className="td-mono" style={{ fontSize: 11 }}>{new Date(l.ts).toLocaleString('en-IN', { hour12: false })}</td>
+                  <td className="td-bold">{l.user}</td>
+                  <td><span className="pill" style={{ background: 'var(--bg)', color: 'var(--ink2)' }}>{l.event}</span></td>
+                  <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{l.pdcId}</td>
+                  <td style={{ fontSize: 12.5 }}>{l.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
 };
 
 // ── Detail Modal ──────────────────────────────────────────────────────────
-const DetailModal = ({ pdc, onClose }) => {
+const DetailModal = ({ pdc, onClose, onChanged, onDeleted, onShowToast }) => {
+  const [showStatusForm, setShowStatusForm] = useState(false);
+  const [newStatus, setNewStatus] = useState('In Custody');
+  const [reason, setReason] = useState('');
+
   if (!pdc) return null;
   const ss = STATUS_STYLE[pdc.status];
+
+  const handleStatusChange = async (e) => {
+    e.preventDefault();
+    try {
+      const saved = await changePdcStatus(pdc._id, { status: newStatus, reason });
+      onChanged(saved);
+      setShowStatusForm(false);
+      onShowToast?.(`Status → ${newStatus}`);
+    } catch (err) { onShowToast?.(err.message); }
+  };
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${pdc.pdcId}? This cannot be undone.`)) return;
+    try {
+      await deletePdc(pdc._id);
+      onDeleted(pdc._id);
+      onShowToast?.('PDC deleted');
+    } catch (err) { onShowToast?.(err.message); }
+  };
+
   return (
     <div className="modal-back open" onClick={onClose}>
       <div className="modal" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
         <div className="modal-hd">
           <div>
-            <div className="modal-title">{pdc.id}</div>
+            <div className="modal-title">{pdc.pdcId}</div>
             <div className="modal-sub">{pdc.dir === 'IN' ? 'Inward Cheque' : 'Outward Cheque'} · {pdc.party}</div>
           </div>
-          <span className="pill" style={{ background: ss.bg, color: ss.fg, marginLeft: 'auto', marginRight: 12 }}>{pdc.status}</span>
+          <span className="pill" style={{ background: ss?.bg, color: ss?.fg, marginLeft: 'auto', marginRight: 12 }}>{pdc.status}</span>
           <button className="drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 18 }}>
-            <div>
-              <div className="pdc-thumb">Front</div>
-              <div className="pdc-thumb" style={{ marginTop: 8 }}>Back</div>
-            </div>
-            <div className="info-grid">
-              <div><div className="i-key">Cheque #</div><div className="i-val mono">{pdc.cheque}</div></div>
-              <div><div className="i-key">Maturity</div><div className="i-val mono">{pdc.maturity}</div></div>
-              <div><div className="i-key">Drawer Bank</div><div className="i-val">{pdc.bank}</div></div>
-              <div><div className="i-key">Account</div><div className="i-val mono">{pdc.acct}</div></div>
-              <div><div className="i-key">IFSC</div><div className="i-val mono">{pdc.ifsc}</div></div>
-              <div><div className="i-key">Custody Branch</div><div className="i-val">{pdc.custody}</div></div>
-              <div><div className="i-key">Amount</div><div className="i-val big">{inr(pdc.amount)}</div></div>
-            </div>
+          {showStatusForm && (
+            <form onSubmit={handleStatusChange} style={{ background: 'var(--bg)', padding: 14, borderRadius: 8, marginBottom: 18 }}>
+              <div className="form-grid">
+                <div className="ff"><label className="f-label">New Status</label><select className="f-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}>{STATUS_LIST.map(s => <option key={s}>{s}</option>)}</select></div>
+                <div className="ff"><label className="f-label">{newStatus === 'Bounced' ? 'Return Reason' : 'Reason / Notes'}</label>
+                  {newStatus === 'Bounced' ? (
+                    <select className="f-input" value={reason} onChange={e => setReason(e.target.value)}><option value="">Pick...</option>{RBI_RETURN_REASONS.map(r => <option key={r}>{r}</option>)}</select>
+                  ) : <input className="f-input" value={reason} onChange={e => setReason(e.target.value)} />}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowStatusForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Apply</button>
+              </div>
+            </form>
+          )}
+
+          <div className="info-grid">
+            <div><div className="i-key">Cheque #</div><div className="i-val mono">{pdc.cheque}</div></div>
+            <div><div className="i-key">Maturity</div><div className="i-val mono">{pdc.maturity}</div></div>
+            <div><div className="i-key">Drawer Bank</div><div className="i-val">{pdc.bank}</div></div>
+            <div><div className="i-key">Bank Branch</div><div className="i-val">{pdc.bankBranch || '—'}</div></div>
+            <div><div className="i-key">IFSC</div><div className="i-val mono">{pdc.ifsc || '—'}</div></div>
+            <div><div className="i-key">Account #</div><div className="i-val mono">{pdc.acct || '—'}</div></div>
+            <div><div className="i-key">Custody Branch</div><div className="i-val">{pdc.custody}</div></div>
+            <div><div className="i-key">Custodian</div><div className="i-val">{pdc.custodian || '—'}</div></div>
+            <div><div className="i-key">Amount</div><div className="i-val big">{inr(pdc.amount)}</div></div>
+            <div><div className="i-key">Purpose</div><div className="i-val">{pdc.purpose || '—'}</div></div>
+            {pdc.invoiceRef && <div><div className="i-key">Invoice Ref</div><div className="i-val mono">{pdc.invoiceRef}</div></div>}
+            {pdc.remarks && <div style={{ gridColumn: '1/-1' }}><div className="i-key">Remarks</div><div className="i-val">{pdc.remarks}</div></div>}
           </div>
 
-          <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--rule)' }}>
-            <div className="dsec-label">Timeline</div>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                { ts: '2026-04-12 11:20', evt: 'Created', desc: 'Lodged in custody at MUM-01' },
-                { ts: '2026-04-15 09:45', evt: 'Image uploaded', desc: 'Front + Back uploaded by Priya S.' },
-                { ts: '2026-05-02 16:08', evt: 'Status update', desc: `→ ${pdc.status}` },
-              ].map((t, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12 }}>
-                  <span style={{ width: 10, height: 10, marginTop: 5, borderRadius: 50, background: 'var(--teal-700)', flexShrink: 0 }} />
-                  <div>
-                    <div className="td-mono" style={{ fontSize: 11, color: 'var(--ink4)' }}>{t.ts}</div>
-                    <div className="td-bold" style={{ fontSize: 13 }}>{t.evt}</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink3)' }}>{t.desc}</div>
+          {(pdc.timeline || []).length > 0 && (
+            <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--rule)' }}>
+              <div className="dsec-label">Timeline</div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {pdc.timeline.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ width: 10, height: 10, marginTop: 5, borderRadius: 50, background: 'var(--teal-700)', flexShrink: 0 }} />
+                    <div>
+                      <div className="td-mono" style={{ fontSize: 11, color: 'var(--ink4)' }}>{new Date(t.ts).toLocaleString('en-IN', { hour12: false })}</div>
+                      <div className="td-bold" style={{ fontSize: 13 }}>{t.event}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink3)' }}>{t.desc}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="modal-ft">
+          <button className="btn btn-ghost" style={{ color: 'var(--coral)', marginRight: 'auto' }} onClick={handleDelete}>Delete</button>
           <button className="btn btn-ghost" onClick={onClose}>Close</button>
-          <button className="btn btn-ghost">Edit</button>
-          <button className="btn btn-primary">Change Status</button>
+          <button className="btn btn-primary" onClick={() => setShowStatusForm(s => !s)}>{showStatusForm ? 'Hide' : 'Change Status'}</button>
         </div>
       </div>
     </div>
@@ -608,29 +795,41 @@ const DetailModal = ({ pdc, onClose }) => {
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────
-const PDCTracker = () => {
+const PDCTracker = ({ onShowToast }) => {
   const [tab, setTab] = useState('Dashboard');
   const [detail, setDetail] = useState(null);
+  const [pdcs, setPdcs] = useState([]);
+  const [parties, setParties] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [kpis, setKpis] = useState({ inward: { sum: 0, count: 0 }, outward: { sum: 0, count: 0 }, dueWeek: { sum: 0, count: 0 }, overdue: { count: 0 }, bounced: { sum: 0, count: 0 }, clearedMtd: { sum: 0, count: 0 } });
 
-  const k = useMemo(() => {
-    const inward = SAMPLE_PDCS.filter(p => p.dir === 'IN' && p.status === 'In Custody');
-    const outward = SAMPLE_PDCS.filter(p => p.dir === 'OUT' && p.status === 'In Custody');
-    const dueWeek = SAMPLE_PDCS.filter(p => {
-      const d = daysFromNow(p.maturity);
-      return d >= 0 && d <= 7 && !['Cleared', 'Cancelled'].includes(p.status);
+  const refresh = useCallback(async () => {
+    try {
+      const [list, dash, ps, bs, ba] = await Promise.all([
+        getPdcs(), getPdcDashboard(), getParties(), getBranches(), getBankAccounts(),
+      ]);
+      setPdcs(list);
+      setKpis(dash);
+      setParties(ps);
+      setBranches(bs);
+      setBanks(ba);
+    } catch (err) {
+      onShowToast?.('Load failed: ' + err.message);
+    }
+  }, [onShowToast]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const handlePdcSaved = (saved) => {
+    setPdcs(prev => {
+      const i = prev.findIndex(p => p._id === saved._id);
+      if (i >= 0) { const next = [...prev]; next[i] = saved; return next; }
+      return [saved, ...prev];
     });
-    const overdue = SAMPLE_PDCS.filter(p => daysFromNow(p.maturity) < 0 && !['Cleared', 'Bounced', 'Cancelled'].includes(p.status));
-    const bounced = SAMPLE_PDCS.filter(p => p.status === 'Bounced');
-    const clearedMtd = SAMPLE_PDCS.filter(p => p.status === 'Cleared');
-    return {
-      inward: { sum: inward.reduce((s, p) => s + p.amount, 0), count: inward.length },
-      outward: { sum: outward.reduce((s, p) => s + p.amount, 0), count: outward.length },
-      dueWeek: { sum: dueWeek.reduce((s, p) => s + p.amount, 0), count: dueWeek.length },
-      overdue: { count: overdue.length },
-      bounced: { sum: bounced.reduce((s, p) => s + p.amount, 0), count: bounced.length },
-      clearedMtd: { sum: clearedMtd.reduce((s, p) => s + p.amount, 0), count: clearedMtd.length },
-    };
-  }, []);
+    refresh();
+  };
+  const handlePdcDeleted = (id) => { setPdcs(prev => prev.filter(p => p._id !== id)); setDetail(null); refresh(); };
 
   return (
     <div>
@@ -641,17 +840,15 @@ const PDCTracker = () => {
         </div>
       </div>
 
-      {/* KPI strip — 6 cells, sticky */}
       <div className="kpi-strip" style={{ gridTemplateColumns: 'repeat(6,1fr)', position: 'sticky', top: 58, zIndex: 20 }}>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--teal-700)' }} /><div className="kpi-ey">Inward Custody</div><div className="kpi-val" style={{ color: 'var(--teal-700)' }}>{inrShort(k.inward.sum)}</div><div className="kpi-desc">{k.inward.count} cheques · realisable</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--gold)' }} /><div className="kpi-ey">Outward Issued</div><div className="kpi-val" style={{ color: 'var(--gold)' }}>{inrShort(k.outward.sum)}</div><div className="kpi-desc">{k.outward.count} cheques · payable</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#dd6b20' }} /><div className="kpi-ey">Due This Week</div><div className="kpi-val" style={{ color: '#dd6b20' }}>{inrShort(k.dueWeek.sum)}</div><div className="kpi-desc">{k.dueWeek.count} cheques · present soon</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--coral)' }} /><div className="kpi-ey">Overdue</div><div className="kpi-val" style={{ color: 'var(--coral)' }}>{k.overdue.count}</div><div className="kpi-desc">past maturity</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#b91c1c' }} /><div className="kpi-ey">Bounced (Open)</div><div className="kpi-val" style={{ color: '#b91c1c' }}>{inrShort(k.bounced.sum)}</div><div className="kpi-desc">{k.bounced.count} · recovery pending</div></div>
-        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#047857' }} /><div className="kpi-ey">Cleared MTD</div><div className="kpi-val" style={{ color: '#047857' }}>{inrShort(k.clearedMtd.sum)}</div><div className="kpi-desc">{k.clearedMtd.count} realised this month</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--teal-700)' }} /><div className="kpi-ey">Inward Custody</div><div className="kpi-val" style={{ color: 'var(--teal-700)' }}>{inrShort(kpis.inward.sum)}</div><div className="kpi-desc">{kpis.inward.count} cheques · realisable</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--gold)' }} /><div className="kpi-ey">Outward Issued</div><div className="kpi-val" style={{ color: 'var(--gold)' }}>{inrShort(kpis.outward.sum)}</div><div className="kpi-desc">{kpis.outward.count} cheques · payable</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#dd6b20' }} /><div className="kpi-ey">Due This Week</div><div className="kpi-val" style={{ color: '#dd6b20' }}>{inrShort(kpis.dueWeek.sum)}</div><div className="kpi-desc">{kpis.dueWeek.count} cheques · present soon</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: 'var(--coral)' }} /><div className="kpi-ey">Overdue</div><div className="kpi-val" style={{ color: 'var(--coral)' }}>{kpis.overdue.count}</div><div className="kpi-desc">past maturity</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#b91c1c' }} /><div className="kpi-ey">Bounced (Open)</div><div className="kpi-val" style={{ color: '#b91c1c' }}>{inrShort(kpis.bounced.sum)}</div><div className="kpi-desc">{kpis.bounced.count} · recovery pending</div></div>
+        <div className="kpi-cell"><div className="kpi-bar" style={{ background: '#047857' }} /><div className="kpi-ey">Cleared MTD</div><div className="kpi-val" style={{ color: '#047857' }}>{inrShort(kpis.clearedMtd.sum)}</div><div className="kpi-desc">{kpis.clearedMtd.count} realised this month</div></div>
       </div>
 
-      {/* Tabs */}
       <div className="filter-strip" style={{ marginBottom: 16, borderRadius: 10, border: '1px solid var(--rule)', background: 'var(--white)', overflowX: 'auto', flexWrap: 'nowrap' }}>
         {TABS.map(t => (
           <button key={t} className={`filter-pill ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)} style={{ whiteSpace: 'nowrap' }}>
@@ -660,16 +857,16 @@ const PDCTracker = () => {
         ))}
       </div>
 
-      {tab === 'Dashboard' && <DashboardTab onOpenDetail={setDetail} />}
-      {tab === 'PDC Register' && <RegisterTab onOpenDetail={setDetail} />}
-      {tab === 'New PDC' && <NewPDCTab />}
-      {tab === 'Banking' && <BankingTab />}
-      {tab === 'Bounce Register' && <BounceTab />}
-      {tab === 'Reports' && <ReportsTab />}
-      {tab === 'Masters' && <MastersTab />}
-      {tab === 'Audit Log' && <AuditTab />}
+      {tab === 'Dashboard' && <DashboardTab pdcs={pdcs} onOpenDetail={setDetail} />}
+      {tab === 'PDC Register' && <RegisterTab pdcs={pdcs} onOpenDetail={setDetail} />}
+      {tab === 'New PDC' && <NewPDCTab parties={parties} branches={branches} banks={banks} onSaved={handlePdcSaved} onShowToast={onShowToast} />}
+      {tab === 'Banking' && <BankingTab pdcs={pdcs} banks={banks} onAddBank={(b) => setBanks(prev => [...prev, b])} onDeleteBank={async (id) => { await deleteBankAccount(id); setBanks(prev => prev.filter(b => b._id !== id)); onShowToast?.('Deleted'); }} onShowToast={onShowToast} />}
+      {tab === 'Bounce Register' && <BounceTab pdcs={pdcs} />}
+      {tab === 'Reports' && <ReportsTab pdcs={pdcs} />}
+      {tab === 'Masters' && <MastersTab parties={parties} branches={branches} banks={banks} onAddParty={(p) => setParties(prev => [...prev, p])} onDelParty={async (id) => { await deleteParty(id); setParties(prev => prev.filter(p => p._id !== id)); onShowToast?.('Deleted'); }} onAddBranch={(b) => setBranches(prev => [...prev, b])} onDelBranch={async (id) => { await deleteBranch(id); setBranches(prev => prev.filter(b => b._id !== id)); onShowToast?.('Deleted'); }} onShowToast={onShowToast} />}
+      {tab === 'Audit Log' && <AuditTab pdcs={pdcs} />}
 
-      <DetailModal pdc={detail} onClose={() => setDetail(null)} />
+      <DetailModal pdc={detail} onClose={() => setDetail(null)} onChanged={handlePdcSaved} onDeleted={handlePdcDeleted} onShowToast={onShowToast} />
     </div>
   );
 };

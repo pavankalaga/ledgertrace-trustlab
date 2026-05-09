@@ -19,9 +19,12 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Tooltip from '@mui/material/Tooltip';
 
+const ROUTES_WITHOUT_INVOICE_BTN = ['/fixed-payments', '/pdc-tracker', '/spend-analytics'];
+
 const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user }) => {
   const location = useLocation();
   const currentRoute = routes.find(r => r.path === location.pathname) || routes[0];
+  const showInvoiceButton = !ROUTES_WITHOUT_INVOICE_BTN.includes(location.pathname);
 
   return (
     <div className="topbar">
@@ -87,22 +90,24 @@ const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user }) =
         </Button>
 
         {/* MUI Button (contained) — replaces button.btn.btn-primary */}
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={onOpenModal}
-          sx={{
-            textTransform: 'none',
-            fontSize: 12.5,
-            backgroundColor: 'var(--coral)',
-            borderRadius: '8px',
-            boxShadow: 'none',
-            '&:hover': { backgroundColor: '#d03535', boxShadow: 'none' },
-          }}
-        >
-          Register Invoice
-        </Button>
+        {showInvoiceButton && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={onOpenModal}
+            sx={{
+              textTransform: 'none',
+              fontSize: 12.5,
+              backgroundColor: 'var(--coral)',
+              borderRadius: '8px',
+              boxShadow: 'none',
+              '&:hover': { backgroundColor: '#d03535', boxShadow: 'none' },
+            }}
+          >
+            Register Invoice
+          </Button>
+        )}
 
         {/* Logout */}
         <Tooltip title={`Logout (${user?.name || ''})`}>

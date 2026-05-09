@@ -33,6 +33,10 @@ app.use('/api/stages', require('./routes/stages'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/company', require('./routes/company'));
 app.use('/api/grn', require('./routes/grn'));
+app.use('/api/fixed-payments', require('./routes/fixedPayments'));
+app.use('/api/pdc', require('./routes/pdc'));
+app.use('/api/vouchers', require('./routes/vouchers'));
+app.use('/api/spend-analytics', require('./routes/spendAnalytics'));
 
 // Serve React build in production
 if (process.env.NODE_ENV === 'production') {

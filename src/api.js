@@ -73,3 +73,53 @@ export const updateCompany = (data) => mutateApi('/company', 'PUT', data);
 
 // GRN SYNC
 export const syncGRN = (fromDate, toDate) => mutateApi('/grn/sync', 'POST', { fromDate, toDate });
+
+// ── FIXED PAYMENTS ────────────────────────────────────────────────────
+export const getFixedForecasts = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/fixed-payments${qs ? '?' + qs : ''}`);
+};
+export const createFixedForecast = (data) => mutateApi('/fixed-payments', 'POST', data);
+export const updateFixedForecast = (id, data) => mutateApi(`/fixed-payments/${id}`, 'PUT', data);
+export const deleteFixedForecast = (id) => mutateApi(`/fixed-payments/${id}`, 'DELETE');
+export const updateForecastMonth = (id, idx, data) => mutateApi(`/fixed-payments/${id}/months/${idx}`, 'PUT', data);
+
+// ── PDC TRACKER ──────────────────────────────────────────────────────
+export const getPdcDashboard = () => fetchApi('/pdc/dashboard');
+export const getPdcs = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/pdc${qs ? '?' + qs : ''}`);
+};
+export const createPdc = (data) => mutateApi('/pdc', 'POST', data);
+export const updatePdc = (id, data) => mutateApi(`/pdc/${id}`, 'PUT', data);
+export const deletePdc = (id) => mutateApi(`/pdc/${id}`, 'DELETE');
+export const changePdcStatus = (id, payload) => mutateApi(`/pdc/${id}/status`, 'PUT', payload);
+
+export const getBankAccounts = () => fetchApi('/pdc/bank-accounts');
+export const createBankAccount = (data) => mutateApi('/pdc/bank-accounts', 'POST', data);
+export const deleteBankAccount = (id) => mutateApi(`/pdc/bank-accounts/${id}`, 'DELETE');
+
+export const getParties = () => fetchApi('/pdc/parties');
+export const createParty = (data) => mutateApi('/pdc/parties', 'POST', data);
+export const deleteParty = (id) => mutateApi(`/pdc/parties/${id}`, 'DELETE');
+
+export const getBranches = () => fetchApi('/pdc/branches');
+export const createBranch = (data) => mutateApi('/pdc/branches', 'POST', data);
+export const deleteBranch = (id) => mutateApi(`/pdc/branches/${id}`, 'DELETE');
+
+// ── SPEND ANALYTICS / VOUCHERS ───────────────────────────────────────
+export const getSpendDashboard = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/spend-analytics/dashboard${qs ? '?' + qs : ''}`);
+};
+export const getVouchers = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/vouchers${qs ? '?' + qs : ''}`);
+};
+export const createVoucher = (data) => mutateApi('/vouchers', 'POST', data);
+export const updateVoucher = (id, data) => mutateApi(`/vouchers/${id}`, 'PUT', data);
+export const deleteVoucher = (id) => mutateApi(`/vouchers/${id}`, 'DELETE');
+
+export const getBudgets = () => fetchApi('/vouchers/budgets');
+export const createBudget = (data) => mutateApi('/vouchers/budgets', 'POST', data);
+export const deleteBudget = (id) => mutateApi(`/vouchers/budgets/${id}`, 'DELETE');
