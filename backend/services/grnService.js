@@ -93,7 +93,9 @@ function transformToInvoices(grnItems) {
   const grouped = {};
 
   grnItems.forEach(item => {
-    const key = item.InvoiceNo;
+    // Compound key: same invoice number from different suppliers is NOT the same invoice.
+    // Most vendors restart counters yearly so InvoiceNo alone collides constantly.
+    const key = `${(item.SupplierName || '').trim()}||${item.InvoiceNo}`;
     if (!grouped[key]) {
       grouped[key] = {
         invno: item.InvoiceNo,
@@ -232,15 +234,16 @@ async function syncGRNData(fromDate, toDate) {
     // Don't overwrite existing supplier totals — they may have been manually updated
   }
 
-  // Insert only NEW invoices (skip existing by invno)
-  // NEVER overwrite invoices that have been modified (stageIdx > 0)
+  // Insert only NEW invoices (skip existing by invno + supplier compound key).
+  // Same invoice number from different suppliers is a different invoice.
+  // NEVER overwrite invoices that have been modified.
   let invoicesCreated = 0;
   let invoicesSkipped = 0;
   for (const inv of invoices) {
-    const existing = await Invoice.findOne({ invno: inv.invno });
+    const existing = await Invoice.findOne({ invno: inv.invno, supplier: inv.supplier });
     if (existing) {
       invoicesSkipped++;
-      continue; // Already exists — don't touch it (preserves stage changes)
+      continue;
     }
     inv.id = `INV-${year}-${String(nextNum).padStart(3, '0')}`;
     nextNum++;

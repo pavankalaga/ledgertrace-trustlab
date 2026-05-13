@@ -134,3 +134,12 @@ export const getLedgerStatement = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
   return fetchApi(`/supplier-ledger/statement${qs ? '?' + qs : ''}`);
 };
+
+// ── ADVANCE PAYMENTS ────────────────────────────────────────────────
+export const getAdvancePayments = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/advance-payments${qs ? '?' + qs : ''}`);
+};
+export const createAdvancePayment = (data) => mutateApi('/advance-payments', 'POST', data);
+export const updateAdvancePayment = (id, data) => mutateApi(`/advance-payments/${id}`, 'PUT', data);
+export const deleteAdvancePayment = (id) => mutateApi(`/advance-payments/${id}`, 'DELETE');

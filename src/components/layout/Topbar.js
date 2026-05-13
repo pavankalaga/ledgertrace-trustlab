@@ -19,7 +19,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Tooltip from '@mui/material/Tooltip';
 
-const ROUTES_WITHOUT_INVOICE_BTN = ['/fixed-payments', '/pdc-tracker', '/spend-analytics', '/transactions-register', '/supplier-ledger'];
+const ROUTES_WITHOUT_INVOICE_BTN = ['/fixed-payments', '/pdc-tracker', '/spend-analytics', '/transactions-register', '/supplier-ledger', '/advance-payments'];
 
 const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user }) => {
   const location = useLocation();

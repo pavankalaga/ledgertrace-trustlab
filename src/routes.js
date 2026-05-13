@@ -4,6 +4,7 @@ import Pending from './components/pages/Pending';
 import Approvals from './components/pages/Approvals';
 import Payments from './components/pages/Payments';
 import FixedPayments from './components/pages/FixedPayments';
+import AdvancePayments from './components/pages/AdvancePayments';
 import SpendAnalytics from './components/pages/SpendAnalytics';
 import PDCTracker from './components/pages/PDCTracker';
 import TransactionsRegister from './components/pages/TransactionsRegister';
@@ -19,6 +20,7 @@ const routes = [
   { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals' },
   { path: '/payments', key: 'payments', label: 'Payments', section: 'Workflow', component: Payments, icon: 'payments' },
   { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Workflow', component: FixedPayments, icon: 'fixed' },
+  { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Workflow', component: AdvancePayments, icon: 'advance' },
   { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Workflow', component: PDCTracker, icon: 'pdc' },
   { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Ledger', component: TransactionsRegister, icon: 'register' },
   { path: '/supplier-ledger', key: 'supplier-ledger', label: 'Supplier Ledger', section: 'Ledger', component: SupplierLedger, icon: 'ledger' },

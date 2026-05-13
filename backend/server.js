@@ -38,6 +38,7 @@ app.use('/api/pdc', require('./routes/pdc'));
 app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/spend-analytics', require('./routes/spendAnalytics'));
 app.use('/api/supplier-ledger', require('./routes/supplierLedger'));
+app.use('/api/advance-payments', require('./routes/advancePayments'));
 
 // Serve React build in production
 if (process.env.NODE_ENV === 'production') {
