@@ -15,7 +15,10 @@ const isAPUser = (u) => {
   if (!u) return false;
   const r = (u.role || '').toLowerCase();
   const d = (u.dept || '').toLowerCase();
-  return r.includes('accounts payable') || d.includes('accounts payable') || r === 'ap' || d === 'ap';
+  return r.includes('accountant')
+      || r.includes('accounts payable') || d.includes('accounts payable')
+      || d.includes('accountant')
+      || r === 'ap' || d === 'ap';
 };
 const canAdvance = (stageIdx, u) => {
   if (stageIdx === 0) return isAPUser(u) || isCMDUser(u);
