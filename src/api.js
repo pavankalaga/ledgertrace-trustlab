@@ -143,3 +143,5 @@ export const getAdvancePayments = (params = {}) => {
 export const createAdvancePayment = (data) => mutateApi('/advance-payments', 'POST', data);
 export const updateAdvancePayment = (id, data) => mutateApi(`/advance-payments/${id}`, 'PUT', data);
 export const deleteAdvancePayment = (id) => mutateApi(`/advance-payments/${id}`, 'DELETE');
+export const advanceAdvancePayment = (id) => mutateApi(`/advance-payments/${id}/advance`, 'PUT', {});
+export const rejectAdvancePayment = (id, reason) => mutateApi(`/advance-payments/${id}/reject`, 'PUT', { reason });

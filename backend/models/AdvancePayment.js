@@ -7,16 +7,30 @@ const advancePaymentSchema = new mongoose.Schema({
   location: { type: String, required: true },
   poNumber: { type: String, default: '' },
   poDate: { type: String, default: '' },
+  proformaInvoice: { type: String, default: '' },
   amount: { type: Number, required: true },
   paymentType: { type: String, enum: ['Urgent', 'Normal'], default: 'Normal' },
   description: { type: String, default: '' },
-  proformaInvoice: { type: String, default: '' },
-  invoiceId: { type: String, default: '', index: true },
-  status: { type: String, enum: ['pending', 'approved', 'paid', 'rejected'], default: 'pending' },
+
+  // ── 3-stage workflow ──
+  // 0 = Submitted (initial)
+  // 1 = AP Approved (Accounts Payable approval)
+  // 2 = CMD Approved (final approval — workflow complete)
+  stageIdx: { type: Number, default: 0 },
+  stageDates: { type: [String], default: ['', '', ''] },
+  stageBy: { type: [String], default: ['', '', ''] },
+
+  // Rejection state (terminal — workflow stops)
+  rejected: { type: Boolean, default: false },
+  rejectedAt: { type: Number, default: null },
+  rejectedBy: { type: String, default: '' },
+  rejectedDate: { type: String, default: '' },
+  rejectionReason: { type: String, default: '' },
+
   requestedBy: { type: String, default: '' },
 }, { timestamps: true });
 
-advancePaymentSchema.pre('save', async function() {
+advancePaymentSchema.pre('save', async function () {
   if (this.isNew && !this.advId) {
     const year = new Date().getFullYear();
     const last = await mongoose.model('AdvancePayment').findOne({ advId: new RegExp(`^ADV-${year}-`) }).sort({ advId: -1 });

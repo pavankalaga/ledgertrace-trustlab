@@ -1,19 +1,37 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getAdvancePayments, createAdvancePayment, updateAdvancePayment, deleteAdvancePayment,
-  getBranches, getSuppliers,
+  advanceAdvancePayment, rejectAdvancePayment, getBranches, getSuppliers,
 } from '../../api';
 
 const CATEGORY_OPTIONS = ['Opex', 'Capex'];
 const PAYMENT_TYPE_OPTIONS = ['Normal', 'Urgent'];
-const STATUS_LIST = ['pending', 'approved', 'paid', 'rejected'];
 
-const STATUS_STYLE = {
-  pending:  { bg: 'var(--gold-lt)',  fg: 'var(--gold)' },
-  approved: { bg: 'var(--s1l)',      fg: 'var(--s1)' },
-  paid:     { bg: 'var(--teal-lt)',  fg: 'var(--teal-700)' },
-  rejected: { bg: 'var(--coral-lt)', fg: 'var(--coral)' },
+// Stage definitions — match backend
+export const ADV_STAGES = [
+  { idx: 0, key: 'submitted',    label: 'Submitted',    short: 'SUB', color: 'var(--s1)',       lt: 'var(--s1l)' },
+  { idx: 1, key: 'ap_approved',  label: 'AP Approved',  short: 'AP',  color: 'var(--gold)',     lt: 'var(--gold-lt)' },
+  { idx: 2, key: 'cmd_approved', label: 'CMD Approved', short: 'CMD', color: 'var(--teal-700)', lt: 'var(--teal-lt)' },
+];
+
+const isCMD = (u) => {
+  if (!u) return false;
+  const r = (u.role || '').toLowerCase();
+  const d = (u.dept || '').toLowerCase();
+  return r.includes('cmd') || r.includes('administrator') || r === 'admin' || d.includes('cmd') || d.includes('management');
 };
+const isAP = (u) => {
+  if (!u) return false;
+  const r = (u.role || '').toLowerCase();
+  const d = (u.dept || '').toLowerCase();
+  return r.includes('accounts payable') || d.includes('accounts payable') || r === 'ap' || d === 'ap';
+};
+const canApprove = (stageIdx, u) => {
+  if (stageIdx === 0) return isAP(u) || isCMD(u);
+  if (stageIdx === 1) return isCMD(u);
+  return false;
+};
+const canReject = (stageIdx, u) => canApprove(stageIdx, u);
 
 const inr = (n) => '₹' + (parseFloat(n) || 0).toLocaleString('en-IN');
 const inrShort = (n) => {
@@ -36,7 +54,16 @@ const blankForm = () => ({
   description: '',
 });
 
-const AdvancePayments = ({ onShowToast }) => {
+const StageChip = ({ adv }) => {
+  if (adv.rejected) {
+    return <span className="pill" style={{ background: 'var(--coral-lt)', color: 'var(--coral)' }}>✕ REJECTED @ {ADV_STAGES[adv.rejectedAt]?.label || `stage ${adv.rejectedAt}`}</span>;
+  }
+  const s = ADV_STAGES[adv.stageIdx];
+  if (!s) return null;
+  return <span className="pill" style={{ background: s.lt, color: s.color, fontWeight: 700 }}><span className="pill-dot" style={{ background: s.color }} />{s.label}</span>;
+};
+
+const AdvancePayments = ({ user, onShowToast }) => {
   const [rows, setRows] = useState([]);
   const [branches, setBranches] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -44,8 +71,9 @@ const AdvancePayments = ({ onShowToast }) => {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  const [filter, setFilter] = useState({ category: 'All', status: 'All', search: '' });
+  const [filter, setFilter] = useState({ category: 'All', stage: 'All', search: '' });
+  const [rejecting, setRejecting] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const refresh = useCallback(async () => {
     try {
@@ -121,28 +149,42 @@ const AdvancePayments = ({ onShowToast }) => {
     } catch (err) { onShowToast?.(err.message); }
   };
 
-  const setStatus = async (r, status) => {
+  const handleApprove = async (r) => {
     try {
-      const saved = await updateAdvancePayment(r._id, { ...r.toObject?.() || r, status });
+      const saved = await advanceAdvancePayment(r._id);
       setRows(prev => prev.map(x => x._id === saved._id ? saved : x));
-      onShowToast?.(`Status → ${status}`);
+      onShowToast?.(`Advanced to ${ADV_STAGES[saved.stageIdx]?.label}`);
+    } catch (err) { onShowToast?.(err.message); }
+  };
+
+  const submitReject = async () => {
+    if (!rejecting) return;
+    try {
+      const saved = await rejectAdvancePayment(rejecting._id, rejectReason);
+      setRows(prev => prev.map(x => x._id === saved._id ? saved : x));
+      onShowToast?.('Rejected');
+      setRejecting(null); setRejectReason('');
     } catch (err) { onShowToast?.(err.message); }
   };
 
   const filtered = useMemo(() => rows.filter(r => {
     if (filter.category !== 'All' && r.category !== filter.category) return false;
-    if (filter.status !== 'All' && r.status !== filter.status) return false;
-    if (filter.search && !`${r.advId}${r.vendor}${r.poNumber}`.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (filter.stage !== 'All') {
+      if (filter.stage === 'rejected') { if (!r.rejected) return false; }
+      else if (r.rejected) return false;
+      else if (parseInt(filter.stage, 10) !== r.stageIdx) return false;
+    }
+    if (filter.search && !`${r.advId}${r.vendor}${r.poNumber}${r.proformaInvoice || ''}`.toLowerCase().includes(filter.search.toLowerCase())) return false;
     return true;
   }), [rows, filter]);
 
   const totals = useMemo(() => {
-    const sum = (s) => filtered.filter(r => r.status === s).reduce((x, r) => x + (r.amount || 0), 0);
+    const sum = (s) => filtered.filter(r => !r.rejected && r.stageIdx === s).reduce((x, r) => x + (r.amount || 0), 0);
     return {
-      pending: sum('pending'),
-      approved: sum('approved'),
-      paid: sum('paid'),
-      urgent: filtered.filter(r => r.paymentType === 'Urgent' && r.status !== 'paid' && r.status !== 'rejected').length,
+      submitted: sum(0),
+      apApproved: sum(1),
+      cmdApproved: sum(2),
+      urgent: filtered.filter(r => !r.rejected && r.paymentType === 'Urgent' && r.stageIdx < 2).length,
     };
   }, [filtered]);
 
@@ -151,34 +193,37 @@ const AdvancePayments = ({ onShowToast }) => {
       <div className="section-hd">
         <div className="sh-left">
           <h2>Advance Payments</h2>
-          <p>Request advance payouts to vendors against POs — track pending, approved, paid</p>
+          <p>Request → AP approval → CMD final approval · 3-stage workflow</p>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+          Signed in as <b>{user?.name || 'guest'}</b> · {isCMD(user) ? 'CMD' : isAP(user) ? 'AP' : (user?.role || 'requester')}
         </div>
       </div>
 
       <div className="kpi-strip cols4">
         <div className="kpi-cell">
-          <div className="kpi-bar" style={{ background: 'var(--gold)' }} />
-          <div className="kpi-ey">Pending Requests</div>
-          <div className="kpi-val" style={{ color: 'var(--gold)' }}>{inrShort(totals.pending)}</div>
-          <div className="kpi-desc">awaiting approval</div>
+          <div className="kpi-bar" style={{ background: 'var(--s1)' }} />
+          <div className="kpi-ey">Submitted (Stage 1)</div>
+          <div className="kpi-val">{inrShort(totals.submitted)}</div>
+          <div className="kpi-desc">awaiting AP</div>
         </div>
         <div className="kpi-cell">
-          <div className="kpi-bar" style={{ background: 'var(--s1)' }} />
-          <div className="kpi-ey">Approved</div>
-          <div className="kpi-val">{inrShort(totals.approved)}</div>
-          <div className="kpi-desc">ready to pay</div>
+          <div className="kpi-bar" style={{ background: 'var(--gold)' }} />
+          <div className="kpi-ey">AP Approved (Stage 2)</div>
+          <div className="kpi-val" style={{ color: 'var(--gold)' }}>{inrShort(totals.apApproved)}</div>
+          <div className="kpi-desc">awaiting CMD</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-bar" style={{ background: 'var(--teal-700)' }} />
-          <div className="kpi-ey">Paid</div>
-          <div className="kpi-val" style={{ color: 'var(--teal-700)' }}>{inrShort(totals.paid)}</div>
-          <div className="kpi-desc">disbursed</div>
+          <div className="kpi-ey">CMD Approved</div>
+          <div className="kpi-val" style={{ color: 'var(--teal-700)' }}>{inrShort(totals.cmdApproved)}</div>
+          <div className="kpi-desc">fully approved</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-bar" style={{ background: 'var(--coral)' }} />
           <div className="kpi-ey">Urgent Open</div>
           <div className="kpi-val" style={{ color: 'var(--coral)' }}>{totals.urgent}</div>
-          <div className="kpi-desc">requests flagged Urgent</div>
+          <div className="kpi-desc">flagged Urgent · not yet CMD-approved</div>
         </div>
       </div>
 
@@ -220,7 +265,6 @@ const AdvancePayments = ({ onShowToast }) => {
           <div className="ff">
             <label className="f-label">Proforma Invoice</label>
             <input className="f-input" value={form.proformaInvoice} onChange={e => upd('proformaInvoice', e.target.value)} placeholder="Proforma invoice no." />
-            <span className="fp-hint">Used as the Invoice No. in the workflow</span>
           </div>
           <div className="ff">
             <label className="f-label">Amount (₹) *</label>
@@ -261,63 +305,93 @@ const AdvancePayments = ({ onShowToast }) => {
         <div className="card-hd">
           <div className="card-title">Submitted Requests</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input className="f-input" style={{ width: 200, padding: '6px 10px' }} placeholder="Search ADV ID / vendor…" value={filter.search} onChange={e => setFilter({ ...filter, search: e.target.value })} />
+            <input className="f-input" style={{ width: 200, padding: '6px 10px' }} placeholder="Search ADV / vendor…" value={filter.search} onChange={e => setFilter({ ...filter, search: e.target.value })} />
             <select className="f-input" style={{ width: 110, padding: '6px 10px' }} value={filter.category} onChange={e => setFilter({ ...filter, category: e.target.value })}>
               <option>All</option>{CATEGORY_OPTIONS.map(c => <option key={c}>{c}</option>)}
             </select>
-            <select className="f-input" style={{ width: 130, padding: '6px 10px' }} value={filter.status} onChange={e => setFilter({ ...filter, status: e.target.value })}>
-              <option>All</option>{STATUS_LIST.map(s => <option key={s}>{s}</option>)}
+            <select className="f-input" style={{ width: 170, padding: '6px 10px' }} value={filter.stage} onChange={e => setFilter({ ...filter, stage: e.target.value })}>
+              <option value="All">All Stages</option>
+              <option value="0">Stage 1 — Submitted</option>
+              <option value="1">Stage 2 — AP Approved</option>
+              <option value="2">Stage 3 — CMD Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </div>
         </div>
         {filtered.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">💸</div>
-            <p>No advance payment requests yet — submit one above.</p>
+            <p>No advance payment requests match the filters.</p>
           </div>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>ADV ID</th><th>Invoice ID</th><th>Category</th><th>Vendor</th><th>Location</th>
+                <th>ADV ID</th><th>Category</th><th>Vendor</th><th>Location</th>
                 <th>PO #</th><th>Proforma</th><th style={{ textAlign: 'right' }}>Amount</th>
-                <th>Type</th><th>Status</th><th></th>
+                <th>Type</th><th>Stage</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => {
-                const ss = STATUS_STYLE[r.status] || {};
-                return (
-                  <tr key={r._id}>
-                    <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{r.advId}</td>
-                    <td className="td-mono" style={{ color: 'var(--teal-700)', fontSize: 11 }}>{r.invoiceId || '—'}</td>
-                    <td><span className="pill" style={{ background: r.category === 'Capex' ? 'var(--s2l)' : 'var(--teal-lt)', color: r.category === 'Capex' ? 'var(--s2)' : 'var(--teal-700)' }}>{r.category}</span></td>
-                    <td className="td-bold" style={{ fontSize: 12.5 }}>{r.vendor}</td>
-                    <td className="td-mono" style={{ fontSize: 11 }}>{r.location}</td>
-                    <td className="td-mono" style={{ fontSize: 11 }}>{r.poNumber || '—'}</td>
-                    <td className="td-mono" style={{ fontSize: 11 }}>{r.proformaInvoice || '—'}</td>
-                    <td className="td-mono" style={{ textAlign: 'right' }}>{inr(r.amount)}</td>
-                    <td>
-                      {r.paymentType === 'Urgent'
-                        ? <span className="pill" style={{ background: 'var(--coral-lt)', color: 'var(--coral)' }}>⚡ Urgent</span>
-                        : <span className="pill" style={{ background: 'var(--bg)', color: 'var(--ink3)' }}>Normal</span>}
-                    </td>
-                    <td>
-                      <select className="f-input" style={{ padding: '4px 8px', fontSize: 11, background: ss.bg, color: ss.fg, fontWeight: 700, border: `1px solid ${ss.fg}` }} value={r.status} onChange={(e) => setStatus(r, e.target.value)}>
-                        {STATUS_LIST.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-                      </select>
-                    </td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(r)}>Edit</button>
-                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => handleDelete(r._id)}>×</button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map(r => (
+                <tr key={r._id}>
+                  <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{r.advId}</td>
+                  <td><span className="pill" style={{ background: r.category === 'Capex' ? 'var(--s2l)' : 'var(--teal-lt)', color: r.category === 'Capex' ? 'var(--s2)' : 'var(--teal-700)' }}>{r.category}</span></td>
+                  <td className="td-bold" style={{ fontSize: 12.5 }}>{r.vendor}</td>
+                  <td className="td-mono" style={{ fontSize: 11 }}>{r.location}</td>
+                  <td className="td-mono" style={{ fontSize: 11 }}>{r.poNumber || '—'}</td>
+                  <td className="td-mono" style={{ fontSize: 11 }}>{r.proformaInvoice || '—'}</td>
+                  <td className="td-mono" style={{ textAlign: 'right' }}>{inr(r.amount)}</td>
+                  <td>
+                    {r.paymentType === 'Urgent'
+                      ? <span className="pill" style={{ background: 'var(--coral-lt)', color: 'var(--coral)' }}>⚡ Urgent</span>
+                      : <span className="pill" style={{ background: 'var(--bg)', color: 'var(--ink3)' }}>Normal</span>}
+                  </td>
+                  <td><StageChip adv={r} /></td>
+                  <td>
+                    {!r.rejected && r.stageIdx < 2 && canApprove(r.stageIdx, user) && (
+                      <button className="btn btn-primary btn-sm" onClick={() => handleApprove(r)} title={r.stageIdx === 0 ? 'AP Approve' : 'CMD Final Approve'}>
+                        {r.stageIdx === 0 ? '✓ AP' : '✓ CMD'}
+                      </button>
+                    )}
+                    {!r.rejected && r.stageIdx < 2 && canReject(r.stageIdx, user) && (
+                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => { setRejecting(r); setRejectReason(''); }}>Reject</button>
+                    )}
+                    {r.stageIdx === 0 && !r.rejected && (
+                      <>
+                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={() => handleEdit(r)}>Edit</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => handleDelete(r._id)}>×</button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Reject modal */}
+      {rejecting && (
+        <div className="modal-back open" onClick={() => setRejecting(null)}>
+          <div className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-hd">
+              <div><div className="modal-title">Reject {rejecting.advId}</div><div className="modal-sub">This is terminal — the request cannot be re-submitted</div></div>
+              <button type="button" className="drawer-close" onClick={() => setRejecting(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="ff">
+                <label className="f-label">Reason</label>
+                <textarea className="f-input" rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Why is this being rejected?" />
+              </div>
+            </div>
+            <div className="modal-ft">
+              <button type="button" className="btn btn-ghost" onClick={() => setRejecting(null)}>Cancel</button>
+              <button type="button" className="btn" style={{ background: 'var(--coral)', color: '#fff' }} onClick={submitReject}>Reject</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

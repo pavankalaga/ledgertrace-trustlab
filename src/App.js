@@ -111,6 +111,7 @@ function App() {
                     invoices={invoices}
                     stages={stages}
                     activities={activities}
+                    user={user}
                     onOpenDrawer={openDrawer}
                     onShowToast={showToast}
                     onNavigate={handleNavigate}
