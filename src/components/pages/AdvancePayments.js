@@ -30,6 +30,7 @@ const blankForm = () => ({
   location: '',
   poNumber: '',
   poDate: '',
+  proformaInvoice: '',
   amount: 0,
   paymentType: 'Normal',
   description: '',
@@ -96,7 +97,9 @@ const AdvancePayments = ({ onShowToast }) => {
     setEditing(r);
     setForm({
       category: r.category, vendor: r.vendor, location: r.location,
-      poNumber: r.poNumber || '', poDate: r.poDate || '', amount: r.amount,
+      poNumber: r.poNumber || '', poDate: r.poDate || '',
+      proformaInvoice: r.proformaInvoice || '',
+      amount: r.amount,
       paymentType: r.paymentType, description: r.description || '',
     });
     setError('');
@@ -215,6 +218,11 @@ const AdvancePayments = ({ onShowToast }) => {
             <input className="f-input" type="date" value={form.poDate} onChange={e => upd('poDate', e.target.value)} />
           </div>
           <div className="ff">
+            <label className="f-label">Proforma Invoice</label>
+            <input className="f-input" value={form.proformaInvoice} onChange={e => upd('proformaInvoice', e.target.value)} placeholder="Proforma invoice no." />
+            <span className="fp-hint">Used as the Invoice No. in the workflow</span>
+          </div>
+          <div className="ff">
             <label className="f-label">Amount (₹) *</label>
             <input className="f-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => upd('amount', e.target.value)} required />
           </div>
@@ -271,8 +279,8 @@ const AdvancePayments = ({ onShowToast }) => {
           <table>
             <thead>
               <tr>
-                <th>ADV ID</th><th>Category</th><th>Vendor</th><th>Location</th>
-                <th>PO #</th><th>PO Date</th><th style={{ textAlign: 'right' }}>Amount</th>
+                <th>ADV ID</th><th>Invoice ID</th><th>Category</th><th>Vendor</th><th>Location</th>
+                <th>PO #</th><th>Proforma</th><th style={{ textAlign: 'right' }}>Amount</th>
                 <th>Type</th><th>Status</th><th></th>
               </tr>
             </thead>
@@ -282,11 +290,12 @@ const AdvancePayments = ({ onShowToast }) => {
                 return (
                   <tr key={r._id}>
                     <td className="td-mono" style={{ color: 'var(--s1)', fontSize: 11 }}>{r.advId}</td>
+                    <td className="td-mono" style={{ color: 'var(--teal-700)', fontSize: 11 }}>{r.invoiceId || '—'}</td>
                     <td><span className="pill" style={{ background: r.category === 'Capex' ? 'var(--s2l)' : 'var(--teal-lt)', color: r.category === 'Capex' ? 'var(--s2)' : 'var(--teal-700)' }}>{r.category}</span></td>
                     <td className="td-bold" style={{ fontSize: 12.5 }}>{r.vendor}</td>
                     <td className="td-mono" style={{ fontSize: 11 }}>{r.location}</td>
                     <td className="td-mono" style={{ fontSize: 11 }}>{r.poNumber || '—'}</td>
-                    <td className="td-mono" style={{ fontSize: 11 }}>{r.poDate || '—'}</td>
+                    <td className="td-mono" style={{ fontSize: 11 }}>{r.proformaInvoice || '—'}</td>
                     <td className="td-mono" style={{ textAlign: 'right' }}>{inr(r.amount)}</td>
                     <td>
                       {r.paymentType === 'Urgent'

@@ -10,6 +10,8 @@ const advancePaymentSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   paymentType: { type: String, enum: ['Urgent', 'Normal'], default: 'Normal' },
   description: { type: String, default: '' },
+  proformaInvoice: { type: String, default: '' },
+  invoiceId: { type: String, default: '', index: true },
   status: { type: String, enum: ['pending', 'approved', 'paid', 'rejected'], default: 'pending' },
   requestedBy: { type: String, default: '' },
 }, { timestamps: true });
