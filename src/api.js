@@ -107,6 +107,18 @@ export const getBranches = () => fetchApi('/pdc/branches');
 export const createBranch = (data) => mutateApi('/pdc/branches', 'POST', data);
 export const deleteBranch = (id) => mutateApi(`/pdc/branches/${id}`, 'DELETE');
 
+// ── CHEQUE TRACKER (Outgoing payment cheques) ────────────────────────
+export const getCheques = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/cheques${qs ? '?' + qs : ''}`);
+};
+export const createCheque = (data) => mutateApi('/cheques', 'POST', data);
+export const updateCheque = (id, data) => mutateApi(`/cheques/${id}`, 'PUT', data);
+export const deleteCheque = (id) => mutateApi(`/cheques/${id}`, 'DELETE');
+export const changeChequeStatus = (id, payload) => mutateApi(`/cheques/${id}/status`, 'PUT', payload);
+export const approveCheque = (id) => mutateApi(`/cheques/${id}/approve`, 'PUT', {});
+export const rejectCheque = (id, note) => mutateApi(`/cheques/${id}/reject`, 'PUT', { note });
+
 // ── SPEND ANALYTICS / VOUCHERS ───────────────────────────────────────
 export const getSpendDashboard = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
