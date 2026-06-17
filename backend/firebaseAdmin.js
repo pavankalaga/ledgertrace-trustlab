@@ -4,18 +4,20 @@ const admin = require('firebase-admin');
 
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'firebase-service-account.json');
 
-if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) {
-  console.error('[Firebase] Missing service account file at:', SERVICE_ACCOUNT_PATH);
-  console.error('[Firebase] Download it from Firebase Console → Project settings → Service accounts → Generate new private key.');
-  throw new Error('Firebase service account file not found');
+let initialized = false;
+
+if (fs.existsSync(SERVICE_ACCOUNT_PATH)) {
+  try {
+    const serviceAccount = require(SERVICE_ACCOUNT_PATH);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    initialized = true;
+    console.log('[Firebase] Admin SDK initialized for project:', serviceAccount.project_id);
+  } catch (e) {
+    console.error('[Firebase] Failed to initialize Admin SDK:', e.message);
+  }
+} else {
+  console.warn('[Firebase] Service account file not found at', SERVICE_ACCOUNT_PATH);
+  console.warn('[Firebase] OTP login is disabled. Password login still works.');
 }
 
-const serviceAccount = require(SERVICE_ACCOUNT_PATH);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-console.log('[Firebase] Admin SDK initialized for project:', serviceAccount.project_id);
-
-module.exports = admin;
+module.exports = { admin, isInitialized: () => initialized };

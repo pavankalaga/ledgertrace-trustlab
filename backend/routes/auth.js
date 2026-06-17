@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const admin = require('../firebaseAdmin');
+const { admin, isInitialized: isFirebaseReady } = require('../firebaseAdmin');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ledgertrace-secret-key-change-in-production';
@@ -46,6 +46,10 @@ router.post('/login', async (req, res) => {
 // resulting ID token, extract the phone number, and look the user up in MongoDB.
 router.post('/firebase-login', async (req, res) => {
   try {
+    if (!isFirebaseReady()) {
+      return res.status(503).json({ message: 'OTP login is not configured on this server. Please use username and password.' });
+    }
+
     const { idToken } = req.body;
     if (!idToken) {
       return res.status(400).json({ message: 'Firebase ID token is required' });
