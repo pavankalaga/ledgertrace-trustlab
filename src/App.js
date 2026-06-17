@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import './App.css';
 import { getInvoices, getStages, getActivities } from './api';
+import { isCMD } from './utils';
 import routes from './routes';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
@@ -102,24 +103,26 @@ function App() {
         />
         <div className="content">
           <Routes>
-            {routes.map(({ path, key, component: Component }) => (
-              <Route
-                key={key}
-                path={path}
-                element={
-                  <Component
-                    invoices={invoices}
-                    stages={stages}
-                    activities={activities}
-                    user={user}
-                    onOpenDrawer={openDrawer}
-                    onShowToast={showToast}
-                    onNavigate={handleNavigate}
-                    onRefresh={refreshData}
-                  />
-                }
-              />
-            ))}
+            {routes
+              .filter(r => isCMD(user) || r.key !== 'settings')
+              .map(({ path, key, component: Component }) => (
+                <Route
+                  key={key}
+                  path={path}
+                  element={
+                    <Component
+                      invoices={invoices}
+                      stages={stages}
+                      activities={activities}
+                      user={user}
+                      onOpenDrawer={openDrawer}
+                      onShowToast={showToast}
+                      onNavigate={handleNavigate}
+                      onRefresh={refreshData}
+                    />
+                  }
+                />
+              ))}
           </Routes>
         </div>
       </div>

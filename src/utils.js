@@ -16,3 +16,12 @@ export function formatShort(num) {
   if (num >= 1000) return '₹' + (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
   return '₹' + num;
 }
+
+// Admin tier: CMD / Administrator. Sole holder of Settings + final approval rights.
+export function isCMD(user) {
+  if (!user) return false;
+  const r = (user.role || '').toLowerCase();
+  const d = (user.dept || '').toLowerCase();
+  return r.includes('cmd') || r.includes('administrator') || r === 'admin'
+      || d.includes('cmd') || d.includes('management');
+}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import routes from '../../routes';
+import { isCMD } from '../../utils';
 
 const NAV_ICONS = {
   dashboard: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8M4 18h4" /></svg>,
@@ -31,10 +32,14 @@ const Sidebar = ({ isOpen, onClose, invoices = [], user }) => {
     approvals: { count: approvalCount, hot: approvalCount > 0 },
   };
 
+  const visibleRoutes = isCMD(user)
+    ? routes
+    : routes.filter(r => r.key !== 'settings');
+
   const sections = [];
   let lastSection = null;
 
-  routes.forEach((route) => {
+  visibleRoutes.forEach((route) => {
     if (route.section !== lastSection) {
       sections.push({ type: 'header', label: route.section });
       lastSection = route.section;
