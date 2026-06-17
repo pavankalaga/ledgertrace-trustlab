@@ -35,6 +35,7 @@ app.use('/api/company', require('./routes/company'));
 app.use('/api/grn', require('./routes/grn'));
 app.use('/api/fixed-payments', require('./routes/fixedPayments'));
 app.use('/api/pdc', require('./routes/pdc'));
+app.use('/api/cheques', require('./routes/cheques'));
 app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/spend-analytics', require('./routes/spendAnalytics'));
 app.use('/api/supplier-ledger', require('./routes/supplierLedger'));
