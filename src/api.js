@@ -49,6 +49,17 @@ export const loginApi = async (name, password) => {
   return res.json();
 };
 
+export const firebaseLoginApi = async (idToken) => {
+  const res = await fetch(`${API_BASE}/auth/firebase-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Login failed');
+  return data;
+};
+
 // GET
 export const getInvoices = () => fetchApi('/invoices');
 export const getInvoice = (id) => fetchApi(`/invoices/${id}`);

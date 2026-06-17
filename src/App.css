@@ -369,6 +369,12 @@ tbody tr:hover td{background:var(--bg)}
 .lr-forgot:hover{color:#f0c75e}
 .lr-foot{text-align:center;font-size:11px;color:#9ca3af;display:flex;align-items:center;justify-content:center;gap:6px;font-family:'JetBrains Mono',monospace;letter-spacing:.3px}
 .lr-foot svg{width:10px;height:10px;color:#0d9488}
+.lr-alt{display:flex;align-items:center;gap:10px;margin:8px 0 14px}
+.lr-alt-rule{flex:1;height:1px;background:rgba(15,23,42,0.10)}
+.lr-alt-or{font-size:10.5px;letter-spacing:1.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;font-weight:600}
+.lr-btn-alt{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-bottom:14px;border:1px solid rgba(13,148,136,0.25);color:#0d9488;background:rgba(13,148,136,0.04)}
+.lr-btn-alt svg{width:15px;height:15px}
+.lr-btn-alt:hover{background:rgba(13,148,136,0.10);border-color:rgba(13,148,136,0.45);color:#0d9488}
 @media(max-width:768px){
   .login-card{flex-direction:column;width:92vw;min-height:auto}
   .login-left{border-radius:20px 20px 0 0;padding:35px 25px}
