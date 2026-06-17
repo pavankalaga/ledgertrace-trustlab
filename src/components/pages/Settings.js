@@ -130,6 +130,7 @@ const Settings = ({ onShowToast }) => {
                   <div className="ff"><label className="f-label">Designation</label><input className="f-input" value={profile.role || ''} onChange={setP('role')} /></div>
                   <div className="ff"><label className="f-label">Department</label><select className="f-input" value={profile.dept || ''} onChange={setP('dept')}>
                     <option>CMD</option>
+                    <option>Business Head - Administration</option>
                     <option>Procurement</option>
                     <option>Accounts Payable</option>
                     <option>Biomedical Operations</option>
@@ -287,6 +288,7 @@ const Settings = ({ onShowToast }) => {
               </div>
               <div className="ff"><label className="f-label">Department</label><select className="f-input" value={userForm.dept} onChange={setU('dept')}><option value="">Select...</option>
                 <option>CMD</option>
+                <option>Business Head - Administration</option>
                 <option>Procurement</option>
                 <option>Accounts Payable</option>
                 <option>Biomedical Operations</option>
