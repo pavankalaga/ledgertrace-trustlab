@@ -3,6 +3,7 @@ import {
   getAdvancePayments, createAdvancePayment, updateAdvancePayment, deleteAdvancePayment,
   advanceAdvancePayment, rejectAdvancePayment, getBranches, getSuppliers,
 } from '../../api';
+import InlineEdit from '../shared/InlineEdit';
 
 const CATEGORY_OPTIONS = ['Opex', 'Capex'];
 const PAYMENT_TYPE_OPTIONS = ['Normal', 'Urgent'];
@@ -170,6 +171,16 @@ const AdvancePayments = ({ user, onShowToast }) => {
     } catch (err) { onShowToast?.(err.message); }
   };
 
+  const saveDescription = async (id, text) => {
+    try {
+      const saved = await updateAdvancePayment(id, { description: text });
+      setRows(prev => prev.map(x => x._id === id ? { ...x, description: saved?.description ?? text } : x));
+    } catch (err) {
+      onShowToast?.(err.message || 'Failed to save description');
+      throw err;
+    }
+  };
+
   const filtered = useMemo(() => rows.filter(r => {
     if (filter.category !== 'All' && r.category !== filter.category) return false;
     if (filter.stage !== 'All') {
@@ -333,6 +344,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
                 <th>ADV ID</th><th>Category</th><th>Vendor</th><th>Location</th>
                 <th>PO #</th><th>Proforma</th><th style={{ textAlign: 'right' }}>Amount</th>
                 <th>Type</th><th>Stage</th><th>Action</th>
+                <th style={{ minWidth: 180 }}>Description</th>
               </tr>
             </thead>
             <tbody>
@@ -366,6 +378,15 @@ const AdvancePayments = ({ user, onShowToast }) => {
                         <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => handleDelete(r._id)}>×</button>
                       </>
                     )}
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--ink2)', maxWidth: 260 }}>
+                    <InlineEdit
+                      value={r.description}
+                      onSave={(text) => saveDescription(r._id, text)}
+                      placeholder="Click to add description…"
+                      multiline
+                      displayStyle={{ display: 'block', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 }}
+                    />
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { advanceInvoice } from '../../api';
+import { advanceInvoice, updateInvoice } from '../../api';
+import InlineEdit from './InlineEdit';
 
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
   if (!invoice || !stages.length) return null;
@@ -31,11 +32,38 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
     invoice.stageIdx === 3 ? isCMD :
     false;
 
+  const saveDeptJustification = async (text) => {
+    try {
+      await updateInvoice(invoice.id, { deptJustification: text });
+      onRefresh();
+    } catch (err) {
+      onShowToast(err.message || 'Failed to save justification');
+      throw err;
+    }
+  };
+
   const getDetail = (i, d) => {
+    if (i === 1) {
+      // Dept Justification — inline-editable, regardless of stage completion
+      const stageReached = invoice.stageIdx >= 1;
+      return (
+        <>
+          {stageReached && d !== '—' ? <em>{d}</em> : <em style={{ color: 'var(--ink4)' }}>Pending</em>}
+          {' · '}
+          <InlineEdit
+            value={invoice.deptJustification}
+            onSave={saveDeptJustification}
+            placeholder="Add department justification…"
+            multiline
+            disabled={!stageReached}
+            displayStyle={{ fontStyle: 'normal' }}
+          />
+        </>
+      );
+    }
     if (d === '—') return 'Pending';
     switch (i) {
       case 0: return <><em>{d}</em> · Invoice received</>;
-      case 1: return <><em>{d}</em> · Department justification review</>;
       case 2: return <><em>{d}</em> · Accounts Payable verification</>;
       case 3: return <><em>{d}</em> · {invoice.fin || 'Finance/CMD approval'}</>;
       case 4: return <><em>{d}</em> · Entered in Tally ERP</>;

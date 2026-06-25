@@ -30,6 +30,7 @@ const invoiceSchema = new mongoose.Schema({
   utr:         String,
   urgency:     String,
   nextAction:  String,
+  deptJustification: { type: String, default: '' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);
