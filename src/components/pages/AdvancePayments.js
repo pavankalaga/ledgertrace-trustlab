@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getAdvancePayments, createAdvancePayment, updateAdvancePayment, deleteAdvancePayment,
-  advanceAdvancePayment, rejectAdvancePayment, getBranches, getSuppliers,
+  advanceAdvancePayment, rejectAdvancePayment, markPaidAdvancePayment, unmarkPaidAdvancePayment,
+  getBranches, getSuppliers,
 } from '../../api';
 import InlineEdit from '../shared/InlineEdit';
 
@@ -36,6 +37,10 @@ const canApprove = (stageIdx, u) => {
   return false;
 };
 const canReject = (stageIdx, u) => canApprove(stageIdx, u);
+const canMarkPaid = (adv, u) => !adv.rejected && adv.stageIdx >= 2 && !adv.paid && (isAP(u) || isCMD(u));
+const canUnmarkPaid = (adv, u) => !!adv.paid && isCMD(u);
+
+const PAYMENT_MODES = ['NEFT', 'RTGS', 'IMPS', 'UPI', 'Cheque', 'Cash', 'Other'];
 
 const inr = (n) => '₹' + (parseFloat(n) || 0).toLocaleString('en-IN');
 const inrShort = (n) => {
@@ -78,6 +83,8 @@ const AdvancePayments = ({ user, onShowToast }) => {
   const [filter, setFilter] = useState({ category: 'All', stage: 'All', search: '' });
   const [rejecting, setRejecting] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [paying, setPaying] = useState(null);
+  const [payForm, setPayForm] = useState({ paidDate: '', paidMode: 'NEFT', paidRef: '' });
 
   const refresh = useCallback(async () => {
     try {
@@ -178,6 +185,39 @@ const AdvancePayments = ({ user, onShowToast }) => {
     } catch (err) {
       onShowToast?.(err.message || 'Failed to save description');
       throw err;
+    }
+  };
+
+  const openPayModal = (r) => {
+    const today = new Date().toISOString().split('T')[0];
+    setPayForm({ paidDate: today, paidMode: 'NEFT', paidRef: '' });
+    setPaying(r);
+  };
+
+  const submitMarkPaid = async () => {
+    if (!paying) return;
+    if (!payForm.paidDate || !payForm.paidMode) {
+      onShowToast?.('Payment date and mode are required');
+      return;
+    }
+    try {
+      const saved = await markPaidAdvancePayment(paying._id, payForm);
+      setRows(prev => prev.map(x => x._id === saved._id ? saved : x));
+      onShowToast?.(`Marked paid · ${saved.paidMode}`);
+      setPaying(null);
+    } catch (err) {
+      onShowToast?.(err.message || 'Failed to mark paid');
+    }
+  };
+
+  const handleUnmarkPaid = async (r) => {
+    if (!window.confirm(`Revert paid status for ${r.advId}?`)) return;
+    try {
+      const saved = await unmarkPaidAdvancePayment(r._id);
+      setRows(prev => prev.map(x => x._id === saved._id ? saved : x));
+      onShowToast?.('Paid status reverted');
+    } catch (err) {
+      onShowToast?.(err.message || 'Failed to revert');
     }
   };
 
@@ -343,7 +383,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
               <tr>
                 <th>ADV ID</th><th>Category</th><th>Vendor</th><th>Location</th>
                 <th>PO #</th><th>Proforma</th><th style={{ textAlign: 'right' }}>Amount</th>
-                <th>Type</th><th>Stage</th><th>Action</th>
+                <th>Type</th><th>Stage</th><th>Paid</th><th>Action</th>
                 <th style={{ minWidth: 180 }}>Description</th>
               </tr>
             </thead>
@@ -363,6 +403,25 @@ const AdvancePayments = ({ user, onShowToast }) => {
                       : <span className="pill" style={{ background: 'var(--bg)', color: 'var(--ink3)' }}>Normal</span>}
                   </td>
                   <td><StageChip adv={r} /></td>
+                  <td>
+                    {r.paid ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span className="pill" style={{ background: 'var(--teal-lt)', color: 'var(--teal-700)', fontWeight: 700 }} title={r.paidRef ? `Ref: ${r.paidRef}${r.paidBy ? ' · by ' + r.paidBy : ''}` : (r.paidBy ? 'by ' + r.paidBy : '')}>
+                          <span className="pill-dot" style={{ background: 'var(--teal-700)' }} />Paid · {r.paidMode || '—'}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--ink4)', fontFamily: "'JetBrains Mono',monospace" }}>{r.paidDate}</span>
+                        {canUnmarkPaid(r, user) && (
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', fontSize: 10, padding: '2px 6px', marginTop: 2 }} onClick={() => handleUnmarkPaid(r)}>Undo</button>
+                        )}
+                      </div>
+                    ) : canMarkPaid(r, user) ? (
+                      <button className="btn btn-primary btn-sm" onClick={() => openPayModal(r)} title="Record disbursement to vendor">$ Mark Paid</button>
+                    ) : r.rejected ? (
+                      <span style={{ fontSize: 11, color: 'var(--ink4)' }}>—</span>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--ink4)' }} title="Available after CMD approval">Pending</span>
+                    )}
+                  </td>
                   <td>
                     {!r.rejected && r.stageIdx < 2 && canApprove(r.stageIdx, user) && (
                       <button className="btn btn-primary btn-sm" onClick={() => handleApprove(r)} title={r.stageIdx === 0 ? 'AP Approve' : 'CMD Final Approve'}>
@@ -412,6 +471,58 @@ const AdvancePayments = ({ user, onShowToast }) => {
             <div className="modal-ft">
               <button type="button" className="btn btn-ghost" onClick={() => setRejecting(null)}>Cancel</button>
               <button type="button" className="btn" style={{ background: 'var(--coral)', color: '#fff' }} onClick={submitReject}>Reject</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Paid modal */}
+      {paying && (
+        <div className="modal-back open" onClick={() => setPaying(null)}>
+          <div className="modal" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-hd">
+              <div>
+                <div className="modal-title">Mark {paying.advId} as Paid</div>
+                <div className="modal-sub">{paying.vendor} · {inr(paying.amount)}</div>
+              </div>
+              <button type="button" className="drawer-close" onClick={() => setPaying(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="ff">
+                  <label className="f-label">Payment Date *</label>
+                  <input
+                    type="date"
+                    className="f-input"
+                    value={payForm.paidDate}
+                    onChange={e => setPayForm(s => ({ ...s, paidDate: e.target.value }))}
+                  />
+                </div>
+                <div className="ff">
+                  <label className="f-label">Payment Mode *</label>
+                  <select
+                    className="f-input"
+                    value={payForm.paidMode}
+                    onChange={e => setPayForm(s => ({ ...s, paidMode: e.target.value }))}
+                  >
+                    {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="ff s2">
+                  <label className="f-label">UTR / Cheque No. / Reference</label>
+                  <input
+                    type="text"
+                    className="f-input"
+                    value={payForm.paidRef}
+                    onChange={e => setPayForm(s => ({ ...s, paidRef: e.target.value }))}
+                    placeholder="Optional — transaction reference for audit"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-ft">
+              <button type="button" className="btn btn-ghost" onClick={() => setPaying(null)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={submitMarkPaid}>Confirm Payment</button>
             </div>
           </div>
         </div>

@@ -27,6 +27,14 @@ const advancePaymentSchema = new mongoose.Schema({
   rejectedDate: { type: String, default: '' },
   rejectionReason: { type: String, default: '' },
 
+  // Paid state — set once AP team disburses the advance to the vendor.
+  // Independent of the approval workflow stage.
+  paid:     { type: Boolean, default: false },
+  paidDate: { type: String,  default: '' },
+  paidMode: { type: String,  default: '' },
+  paidRef:  { type: String,  default: '' },
+  paidBy:   { type: String,  default: '' },
+
   requestedBy: { type: String, default: '' },
 }, { timestamps: true });
 

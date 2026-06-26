@@ -134,6 +134,56 @@ const advanceStage = async (req, res) => {
   }
 };
 
+// PUT /api/advance-payments/:id/mark-paid — record disbursement to vendor.
+// Independent of approval workflow; only allowed once CMD-approved and not rejected.
+const markPaid = async (req, res) => {
+  try {
+    const adv = await AdvancePayment.findById(req.params.id);
+    if (!adv) return res.status(404).json({ message: 'Advance not found' });
+    if (adv.rejected) return res.status(400).json({ message: 'Rejected — cannot mark paid' });
+    if (adv.stageIdx < 2) return res.status(400).json({ message: 'Must be CMD-approved before marking paid' });
+
+    const user = await resolveUser(req);
+    if (!(isAPUser(user) || isCMDUser(user))) {
+      return res.status(403).json({ message: `Only Accounts Payable or CMD can mark paid (your role: ${user?.role || '—'})` });
+    }
+
+    adv.paid = true;
+    adv.paidDate = req.body.paidDate || today();
+    adv.paidMode = req.body.paidMode || '';
+    adv.paidRef = req.body.paidRef || '';
+    adv.paidBy = user?.name || 'system';
+    await adv.save();
+    res.json(adv);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/advance-payments/:id/unmark-paid — revert paid state (CMD only).
+const unmarkPaid = async (req, res) => {
+  try {
+    const adv = await AdvancePayment.findById(req.params.id);
+    if (!adv) return res.status(404).json({ message: 'Advance not found' });
+    if (!adv.paid) return res.status(400).json({ message: 'Not currently marked paid' });
+
+    const user = await resolveUser(req);
+    if (!isCMDUser(user)) {
+      return res.status(403).json({ message: 'Only CMD can revert paid status' });
+    }
+
+    adv.paid = false;
+    adv.paidDate = '';
+    adv.paidMode = '';
+    adv.paidRef = '';
+    adv.paidBy = '';
+    await adv.save();
+    res.json(adv);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // PUT /api/advance-payments/:id/reject — terminal
 const reject = async (req, res) => {
   try {
@@ -163,4 +213,4 @@ const reject = async (req, res) => {
   }
 };
 
-module.exports = { list, getOne, create, update, remove, advanceStage, reject, STAGE_NAMES };
+module.exports = { list, getOne, create, update, remove, advanceStage, reject, markPaid, unmarkPaid, STAGE_NAMES };
