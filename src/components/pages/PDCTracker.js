@@ -252,7 +252,7 @@ const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
 
   const handleImage = async (key, file) => {
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) { setError('Image too large (max 4 MB)'); return; }
+    if (file.size > 10 * 1024 * 1024) { setError('Image too large (max 10 MB)'); return; }
     if (!/^image\//.test(file.type)) { setError('File must be an image (JPG/PNG)'); return; }
     try { const b64 = await readAsDataURL(file); upd(key, b64); setError(''); }
     catch { setError('Failed to read image'); }
@@ -346,7 +346,7 @@ const NewPDCTab = ({ parties, branches, banks, onSaved, onShowToast }) => {
         <div style={{ flex: 1 }}>
           <h3 className="pdc-step-title">Cheque Image Upload</h3>
           <p style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 14, fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}>
-            Upload clear photographs or scans of both faces of the cheque. JPG/PNG, max 4 MB each.
+            Upload clear photographs or scans of both faces of the cheque. JPG/PNG, max 10 MB each.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <label className="pdc-drop">
