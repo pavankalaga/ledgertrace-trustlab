@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { syncGRN } from '../../api';
 
 const StagePill = ({ stages, stageIdx }) => {
@@ -45,6 +46,8 @@ const PAGE_SIZE = 15;
 const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) => {
   const fyOptions = getFYOptions();
   const monthRange = getMonthRange();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [filter, setFilter] = useState('all');
   const [stage, setStage] = useState('all');
@@ -53,6 +56,29 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
   const [dateFrom, setDateFrom] = useState(monthRange.from);
   const [dateTo, setDateTo] = useState(monthRange.to);
   const [syncing, setSyncing] = useState(false);
+  const [supplierFilter, setSupplierFilter] = useState('');
+
+  // Read ?supplier= from URL (used by Topbar search). Widen the date range so the
+  // supplier's older invoices actually show up (current-month default would hide them).
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get('supplier');
+    if (q) {
+      setSupplierFilter(q);
+      setFilter('all');
+      setStage('all');
+      const today = new Date();
+      const threeYearsBack = new Date(today.getFullYear() - 3, today.getMonth(), 1);
+      setDateFrom(threeYearsBack.toISOString().split('T')[0]);
+      setDateTo(today.toISOString().split('T')[0]);
+      setFy('');
+      setPage(1);
+    }
+  }, [location.search]);
+
+  const clearSupplierFilter = () => {
+    setSupplierFilter('');
+    navigate('/invoices', { replace: true });
+  };
 
   // Apply FY selection → set date range
   const handleFYChange = (e) => {
@@ -69,8 +95,13 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
     setPage(1);
   };
 
-  // Filter invoices by date range, status, and stage
+  // Filter invoices by date range, status, stage, and supplier.
   const list = invoices.filter(inv => {
+    // Supplier filter (from search dropdown) — case-insensitive substring match
+    if (supplierFilter) {
+      const s = (inv.supplier || '').toLowerCase();
+      if (!s.includes(supplierFilter.toLowerCase())) return false;
+    }
     // Date range filter
     const invDate = parseInvDate(inv.invdate);
     if (invDate && dateFrom) {
@@ -138,6 +169,26 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
           ))}
         </div>
       </div>
+
+      {supplierFilter && (
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: 'var(--ink4)', letterSpacing: 1 }}>FILTERED BY SUPPLIER</span>
+          <span
+            className="pill"
+            style={{ background: 'var(--teal-lt)', color: 'var(--teal-700)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            {supplierFilter}
+            <button
+              type="button"
+              onClick={clearSupplierFilter}
+              title="Clear supplier filter"
+              style={{ background: 'transparent', border: 'none', color: 'var(--teal-700)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Date filters + FY + Sync */}
       <div className="card" style={{ marginTop: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>

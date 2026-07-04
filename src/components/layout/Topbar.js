@@ -93,7 +93,8 @@ const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user, inv
     if (item.type === 'invoice') {
       onOpenDrawer?.(item.invoice.id);
     } else if (item.type === 'supplier') {
-      navigate(`/supplier-ledger?supplier=${encodeURIComponent(item.supplier)}`);
+      // Route to All Invoices filtered by this supplier — that's the natural landing.
+      navigate(`/invoices?supplier=${encodeURIComponent(item.supplier)}`);
     }
     setOpen(false);
     setQuery('');
