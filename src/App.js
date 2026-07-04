@@ -100,6 +100,8 @@ function App() {
           onToggleSidebar={() => setSidebarOpen(true)}
           onLogout={handleLogout}
           user={user}
+          invoices={invoices}
+          onOpenDrawer={openDrawer}
         />
         <div className="content">
           <Routes>

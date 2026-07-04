@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getLedgerStatement, getSuppliers } from '../../api';
 
 const inr = (n) => '₹' + (parseFloat(n) || 0).toLocaleString('en-IN');
@@ -27,6 +28,7 @@ const monthLabel = (ym) => {
 };
 
 const SupplierLedger = ({ onShowToast }) => {
+  const location = useLocation();
   const [suppliers, setSuppliers] = useState([]);
   const [supplier, setSupplier] = useState('');
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -37,6 +39,12 @@ const SupplierLedger = ({ onShowToast }) => {
   useEffect(() => {
     getSuppliers().then(setSuppliers).catch(e => onShowToast?.(e.message));
   }, [onShowToast]);
+
+  // Preselect supplier from ?supplier= query param (used by Topbar search).
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get('supplier');
+    if (q) setSupplier(q);
+  }, [location.search]);
 
   const generate = useCallback(async () => {
     if (!supplier) return onShowToast?.('Pick a supplier first');
