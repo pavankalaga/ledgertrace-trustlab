@@ -27,58 +27,102 @@ const actions = [
   'Completed',                     // from stage 7
 ];
 
-// POST /api/invoices — create a new invoice
+// Build the full Invoice document from user input + a pre-assigned id.
+// Shared by single create and bulk create so both go through identical logic.
+const buildInvoicePayload = (input, id) => {
+  const receivedBy = input.receivedBy || 'Procurement';
+  const startStageIdx = deptToStageIdx[receivedBy] || 0;
+  const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+
+  const dates = ['—', '—', '—', '—', '—', '—', '—', '—'];
+  for (let i = 0; i <= startStageIdx; i++) dates[i] = today;
+
+  const fmtN = (n) => n ? '₹' + n.toLocaleString('en-IN') : '₹0';
+  const asStr = (v) => (v === undefined || v === null) ? '' : String(v);
+  const stripNum = (v) => Number(asStr(v).replace(/[₹,\s]/g, '')) || 0;
+
+  const tdsRowsIn = Array.isArray(input.tdsRows) ? input.tdsRows : [];
+  const totalTdsNum = tdsRowsIn.reduce((sum, row) => {
+    const gross = stripNum(row.gross);
+    const pct = Number(row.tdsPct) || 0;
+    return sum + Math.round(gross * pct / 100);
+  }, 0);
+  const invoiceTotalNum = stripNum(input.total);
+  const tdsAmt = totalTdsNum > 0 ? fmtN(totalTdsNum) : '—';
+  const netPayable = totalTdsNum > 0 ? fmtN(invoiceTotalNum - totalTdsNum) : fmtN(invoiceTotalNum);
+
+  const savedRows = tdsRowsIn.map(row => {
+    const gross = stripNum(row.gross);
+    const pct = Number(row.tdsPct) || 0;
+    return { ...row, tdsAmt: fmtN(Math.round(gross * pct / 100)) };
+  });
+
+  return {
+    ...input,
+    id,
+    stageIdx: startStageIdx,
+    dates,
+    tdsRows: savedRows,
+    tdsAmt,
+    netPayable,
+    fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
+    urgency: 'normal',
+    nextAction: actions[startStageIdx] || 'Route to Department',
+    dueType: 'ok',
+  };
+};
+
+const nextInvoiceIdFromCount = (count) => `INV-2025-${String(count + 45).padStart(3, '0')}`;
+
+// POST /api/invoices — create a single invoice
 const create = async (req, res) => {
   try {
     const count = await Invoice.countDocuments();
-    const num = String(count + 45).padStart(3, '0');
-    const id = `INV-2025-${num}`;
-
-    const receivedBy = req.body.receivedBy || 'Procurement';
-    const startStageIdx = deptToStageIdx[receivedBy] || 0;
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-
-    // Fill dates for all completed stages up to the starting stage
-    const dates = ['—', '—', '—', '—', '—', '—', '—', '—'];
-    for (let i = 0; i <= startStageIdx; i++) {
-      dates[i] = today;
-    }
-
-    // TDS calculation from multi-row tdsRows
-    const fmtN = (n) => n ? '₹' + n.toLocaleString('en-IN') : '₹0';
-    const tdsRows = Array.isArray(req.body.tdsRows) ? req.body.tdsRows : [];
-    const totalTdsNum = tdsRows.reduce((sum, row) => {
-      const gross = Number((row.gross || '').replace(/[₹,]/g, '')) || 0;
-      const pct = Number(row.tdsPct) || 0;
-      return sum + Math.round(gross * pct / 100);
-    }, 0);
-    const invoiceTotalNum = Number((req.body.total || '').replace(/[₹,]/g, '')) || 0;
-    const tdsAmt = totalTdsNum > 0 ? fmtN(totalTdsNum) : '—';
-    const netPayable = totalTdsNum > 0 ? fmtN(invoiceTotalNum - totalTdsNum) : fmtN(invoiceTotalNum);
-
-    // Annotate each row with its computed tdsAmt
-    const savedRows = tdsRows.map(row => {
-      const gross = Number((row.gross || '').replace(/[₹,]/g, '')) || 0;
-      const pct = Number(row.tdsPct) || 0;
-      return { ...row, tdsAmt: fmtN(Math.round(gross * pct / 100)) };
-    });
-
-    const invoice = await Invoice.create({
-      ...req.body,
-      id,
-      stageIdx: startStageIdx,
-      dates,
-      tdsRows: savedRows,
-      tdsAmt,
-      netPayable,
-      fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
-      urgency: 'normal',
-      nextAction: actions[startStageIdx] || 'Route to Department',
-      dueType: 'ok',
-    });
+    const id = nextInvoiceIdFromCount(count);
+    const payload = buildInvoicePayload(req.body, id);
+    const invoice = await Invoice.create(payload);
     res.status(201).json(invoice);
   } catch (err) {
     console.error('Create invoice error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /api/invoices/bulk — create many invoices in one request.
+// Body: { invoices: [ {...}, {...} ] }. Row-level errors are reported without aborting the batch.
+const bulkCreate = async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body.invoices) ? req.body.invoices : [];
+    if (rows.length === 0) return res.status(400).json({ error: 'No invoices provided' });
+    if (rows.length > 500) return res.status(400).json({ error: 'Max 500 invoices per bulk upload' });
+
+    let count = await Invoice.countDocuments();
+    const results = { total: rows.length, succeeded: 0, failed: [], createdIds: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i] || {};
+      try {
+        if (!raw.supplier || !raw.invno) {
+          throw new Error('supplier and invno are required');
+        }
+        const id = nextInvoiceIdFromCount(count);
+        const payload = buildInvoicePayload(raw, id);
+        const invoice = await Invoice.create(payload);
+        count += 1;
+        results.succeeded += 1;
+        results.createdIds.push(invoice.id);
+      } catch (err) {
+        results.failed.push({
+          row: i + 2, // header is row 1, first data row is 2
+          supplier: raw.supplier || '',
+          invno: raw.invno || '',
+          error: err.message,
+        });
+      }
+    }
+    res.json(results);
+  } catch (err) {
+    console.error('Bulk create error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -136,4 +180,4 @@ const advanceStage = async (req, res) => {
   }
 };
 
-module.exports = { create, update, advanceStage };
+module.exports = { create, bulkCreate, update, advanceStage };

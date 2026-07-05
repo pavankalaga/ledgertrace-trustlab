@@ -73,6 +73,7 @@ export const getCompany = () => fetchApi('/company');
 
 // CREATE
 export const createInvoice = (data) => mutateApi('/invoices', 'POST', data);
+export const bulkCreateInvoices = (invoices) => mutateApi('/invoices/bulk', 'POST', { invoices });
 export const createSupplier = (data) => mutateApi('/suppliers', 'POST', data);
 export const createUser = (data) => mutateApi('/users', 'POST', data);
 

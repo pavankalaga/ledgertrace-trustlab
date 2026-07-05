@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Invoice = require('../models/Invoice');
-const { create, update, advanceStage } = require('../controllers/invoiceController');
+const { create, bulkCreate, update, advanceStage } = require('../controllers/invoiceController');
 
 // GET /api/invoices — return all invoices
 router.get('/', async (req, res) => {
@@ -18,6 +18,9 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/invoices — create new invoice
 router.post('/', create);
+
+// POST /api/invoices/bulk — create many invoices at once
+router.post('/bulk', bulkCreate);
 
 // PUT /api/invoices/:id/advance — advance to next stage
 router.put('/:id/advance', advanceStage);

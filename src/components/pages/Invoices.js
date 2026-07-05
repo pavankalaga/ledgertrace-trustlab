@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { syncGRN } from '../../api';
+import BulkInvoiceUpload from '../shared/BulkInvoiceUpload';
 
 const StagePill = ({ stages, stageIdx }) => {
   const s = stages[stageIdx];
@@ -57,6 +58,7 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
   const [dateTo, setDateTo] = useState(monthRange.to);
   const [syncing, setSyncing] = useState(false);
   const [supplierFilter, setSupplierFilter] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   // Read ?supplier= from URL (used by Topbar search). Widen the date range so the
   // supplier's older invoices actually show up (current-month default would hide them).
@@ -211,9 +213,13 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
           <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(monthRange.from); setDateTo(monthRange.to); setFy(''); setPage(1); }}>
             Reset
           </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setBulkOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>
+            Bulk Upload
+          </button>
           <button className="btn btn-teal btn-sm" disabled={syncing} onClick={handleSync} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            {syncing ? 'Syncing…' : 'Sync GRN'}
+            {syncing ? 'Fetching…' : 'Fetch / Sync GRN'}
           </button>
         </div>
       </div>
@@ -279,6 +285,13 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
           </div>
         </div>
       </div>
+
+      <BulkInvoiceUpload
+        isOpen={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onShowToast={onShowToast}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 };
