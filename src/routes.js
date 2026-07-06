@@ -13,9 +13,11 @@ import SupplierLedger from './components/pages/SupplierLedger';
 import Reports from './components/pages/Reports';
 import Suppliers from './components/pages/Suppliers';
 import Settings from './components/pages/Settings';
+import MLD from './components/pages/MLD';
 
 const routes = [
   { path: '/', key: 'dashboard', label: 'Dashboard', section: 'Overview', component: Dashboard, icon: 'dashboard' },
+  { path: '/mld', key: 'mld', label: 'MLD', section: 'Overview', component: MLD, icon: 'mld' },
   { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Overview', component: Invoices, icon: 'invoices' },
   { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Workflow', component: Pending, icon: 'pending' },
   { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals' },

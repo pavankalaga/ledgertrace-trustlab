@@ -15,7 +15,8 @@ const Settings = ({ onShowToast }) => {
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', role: '', dept: '', contact: '', password: '', initials: '', color: '#3b6fd4', badge: 'role-fin' });
   const [saving, setSaving] = useState(false);
-  const [grnFrom, setGrnFrom] = useState('2026-01-01');
+  const GRN_SYNC_MIN_DATE = '2026-04-01';
+  const [grnFrom, setGrnFrom] = useState(GRN_SYNC_MIN_DATE);
   const [grnTo, setGrnTo] = useState(new Date().toISOString().split('T')[0]);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
@@ -215,23 +216,41 @@ const Settings = ({ onShowToast }) => {
               <div className="ss-hd">Sync GRN Data from TrustLab</div>
               <div className="ss-sub" style={{ marginBottom: 16, color: 'var(--ink4)', fontSize: 12.5 }}>
                 Fetch invoices and suppliers from TrustLab GRN system and import into LedgerTrace.
+                &nbsp;<strong style={{ color: 'var(--ink3)' }}>Sync is restricted to {GRN_SYNC_MIN_DATE} onwards</strong> — pre-FY-2026-27 data must be added via Bulk Upload.
               </div>
               <div className="ss-body">
                 <div className="form-grid">
                   <div className="ff">
                     <label className="f-label">From Date</label>
-                    <input className="f-input" type="date" value={grnFrom} onChange={e => setGrnFrom(e.target.value)} />
+                    <input
+                      className="f-input"
+                      type="date"
+                      min={GRN_SYNC_MIN_DATE}
+                      value={grnFrom}
+                      onChange={e => setGrnFrom(e.target.value)}
+                    />
                   </div>
                   <div className="ff">
                     <label className="f-label">To Date</label>
-                    <input className="f-input" type="date" value={grnTo} onChange={e => setGrnTo(e.target.value)} />
+                    <input
+                      className="f-input"
+                      type="date"
+                      min={GRN_SYNC_MIN_DATE}
+                      value={grnTo}
+                      onChange={e => setGrnTo(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div style={{ marginTop: 16 }}>
                   <button
                     className="btn btn-primary"
-                    disabled={syncing}
+                    disabled={syncing || grnFrom < GRN_SYNC_MIN_DATE || grnTo < GRN_SYNC_MIN_DATE}
+                    title={(grnFrom < GRN_SYNC_MIN_DATE || grnTo < GRN_SYNC_MIN_DATE) ? `Sync only supports dates from ${GRN_SYNC_MIN_DATE} onwards.` : ''}
                     onClick={async () => {
+                      if (grnFrom < GRN_SYNC_MIN_DATE) {
+                        onShowToast(`Sync only supports dates from ${GRN_SYNC_MIN_DATE} onwards. Use Bulk Upload for past invoices.`);
+                        return;
+                      }
                       setSyncing(true);
                       setSyncResult(null);
                       try {

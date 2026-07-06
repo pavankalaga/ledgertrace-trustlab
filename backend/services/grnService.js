@@ -175,7 +175,19 @@ function transformToSuppliers(grnItems) {
 // SyncLog is updated for tracking but never used to skip months.
 // This ensures newly added GCP records in previously-synced months are picked up.
 
+// FY 2026-27 start — pre-cutoff historical data must be loaded via bulk Excel, not sync.
+const SYNC_MIN_DATE = '2026-04-01';
+
 async function syncGRNData(fromDate, toDate) {
+  // Safety net: clamp fromDate if a caller somehow bypassed the controller guard.
+  if (fromDate < SYNC_MIN_DATE) {
+    console.warn(`GRN sync: fromDate ${fromDate} is before cutoff ${SYNC_MIN_DATE} — clamping.`);
+    fromDate = SYNC_MIN_DATE;
+  }
+  if (toDate < SYNC_MIN_DATE) {
+    throw new Error(`toDate ${toDate} is before the sync cutoff (${SYNC_MIN_DATE}). Historical data must be added via Bulk Upload.`);
+  }
+
   const chunks = getMonthlyChunks(fromDate, toDate);
 
   console.log(`Syncing ${chunks.length} month(s) in range ${fromDate} → ${toDate}`);

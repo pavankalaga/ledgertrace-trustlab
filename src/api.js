@@ -159,6 +159,50 @@ export const getLedgerStatement = (params = {}) => {
   return fetchApi(`/supplier-ledger/statement${qs ? '?' + qs : ''}`);
 };
 
+// ── MLD (Master List of Documents) — read-only mirror of DOMAS ──────
+// getMldData()             → { documents, stats, perms }
+// getMldLogs()             → { logs } (fetched separately so a slow log
+//                            query never blocks the main table render)
+// getMldDoc(id, which)     → { doc, raw, signedUrl, hasFile, logs, ...}
+// mldFileUrl(id, which)    → URL to the /file proxy endpoint (with auth
+//                            header carried by the browser via localStorage)
+// mldDownloadUrl(id, which)→ URL that 302s to a presigned S3 download
+export const getMldData = () => fetchApi('/mld/data');
+export const getMldLogs = () => fetchApi('/mld/data?with=logs');
+export const getMldDoc  = (id, which = 'controlled') =>
+  fetchApi(`/mld/${id}?which=${encodeURIComponent(which)}`);
+// The /file and /download endpoints require the Bearer token in an
+// Authorization header — plain `<a href>` won't send it. We fetch as a
+// Blob and turn it into an object URL for inline preview / download.
+export const fetchMldFileBlob = async (id, which = 'controlled') => {
+  const res = await fetch(`${API_BASE}/mld/${id}/file?which=${encodeURIComponent(which)}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (res.status === 401) { handleUnauthorized(res); return null; }
+  if (!res.ok) throw new Error(`MLD file fetch failed: ${res.status}`);
+  const blob = await res.blob();
+  return { blob, url: URL.createObjectURL(blob), mime: blob.type };
+};
+// Download endpoint returns a 302 to a presigned S3 URL that carries
+// Content-Disposition: attachment — we fetch it to follow the redirect
+// with the auth header, then hand the returned Blob to the browser.
+export const downloadMldFile = async (id, filename, which = 'controlled') => {
+  const res = await fetch(`${API_BASE}/mld/${id}/download?which=${encodeURIComponent(which)}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (res.status === 401) { handleUnauthorized(res); return; }
+  if (!res.ok) throw new Error(`MLD download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'document';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // ── ADVANCE PAYMENTS ────────────────────────────────────────────────
 export const getAdvancePayments = (params = {}) => {
   const qs = new URLSearchParams(params).toString();

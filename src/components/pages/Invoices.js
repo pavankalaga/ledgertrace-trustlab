@@ -43,6 +43,8 @@ const parseInvDate = (dateStr) => {
 };
 
 const PAGE_SIZE = 15;
+// FY 2026-27 start — GRN sync must never pull pre-cutoff data. Past invoices load via Bulk Upload.
+const SYNC_MIN_DATE = '2026-04-01';
 
 const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) => {
   const fyOptions = getFYOptions();
@@ -133,6 +135,15 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
   const handleDateChange = (field, val) => { field === 'from' ? setDateFrom(val) : setDateTo(val); setFy(''); setPage(1); };
 
   const handleSync = async () => {
+    // Guard: reject any pre-FY-2026-27 sync attempt. Past data goes via Bulk Upload.
+    if (dateFrom < SYNC_MIN_DATE) {
+      onShowToast(`GRN sync only supports dates from ${SYNC_MIN_DATE} onwards. Use Bulk Upload for past invoices.`);
+      return;
+    }
+    if (dateTo < SYNC_MIN_DATE) {
+      onShowToast(`"To" date is before ${SYNC_MIN_DATE}. Nothing to sync.`);
+      return;
+    }
     // Check range is within 6 months
     const from = new Date(dateFrom);
     const to = new Date(dateTo);
@@ -217,7 +228,13 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>
             Bulk Upload
           </button>
-          <button className="btn btn-teal btn-sm" disabled={syncing} onClick={handleSync} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            className="btn btn-teal btn-sm"
+            disabled={syncing || dateFrom < SYNC_MIN_DATE}
+            onClick={handleSync}
+            title={dateFrom < SYNC_MIN_DATE ? `GRN sync is disabled for dates before ${SYNC_MIN_DATE}. Use Bulk Upload for past invoices.` : 'Fetch / sync GRN data for the selected range'}
+            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          >
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             {syncing ? 'Fetching…' : 'Fetch / Sync GRN'}
           </button>
