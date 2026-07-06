@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createInvoice, updateInvoice } from '../../api';
+import { createInvoice, updateInvoice, checkInvoiceDuplicate } from '../../api';
 
 const DEPARTMENTS = ['Procurement', 'Accounts Payable', 'Finance', 'Logistics', 'Information Technology', 'CSD', 'Facilities', 'Biomedical Operations'];
 
@@ -29,6 +29,8 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
   const [form, setForm]     = useState(emptyForm);
   const [tdsRows, setTdsRows] = useState([]);
   const [saving, setSaving] = useState(false);
+  // Duplicate check state: null=idle, {checking:true}, {duplicate:true, existing:{...}}, {duplicate:false}
+  const [dupCheck, setDupCheck] = useState(null);
 
   // Pre-fill on open
   useEffect(() => {
@@ -67,7 +69,33 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
     } else {
       setForm(f => ({ ...f, [field]: val }));
     }
+    if (field === 'supplier' || field === 'invno') setDupCheck(null);
   };
+
+  // Debounced duplicate check: fires 500ms after supplier + invno are both filled.
+  // In edit mode we exclude the current invoice's id so its own row isn't flagged.
+  useEffect(() => {
+    if (!isOpen) return;
+    const supplier = form.supplier.trim();
+    const invno = form.invno.trim();
+    if (!supplier || !invno) { setDupCheck(null); return; }
+    let cancelled = false;
+    setDupCheck({ checking: true });
+    const t = setTimeout(async () => {
+      try {
+        const res = await checkInvoiceDuplicate({
+          supplier, invno,
+          excludeId: isEdit ? invoice?.id : undefined,
+        });
+        if (!cancelled) setDupCheck(res);
+      } catch {
+        if (!cancelled) setDupCheck(null);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.supplier, form.invno, isOpen, isEdit, invoice]);
+
+  const hasDuplicate = !!(dupCheck && dupCheck.duplicate);
 
   // Invoice totals
   // If gstAmt is pre-filled (edit mode with stored value), use it directly.
@@ -98,6 +126,10 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
   const handleSubmit = async () => {
     if (!form.supplier || !form.invno) {
       onShowToast('Please fill Supplier Name and Invoice No.');
+      return;
+    }
+    if (hasDuplicate && dupCheck?.existing) {
+      onShowToast(`Invoice No. "${dupCheck.existing.invno}" already exists for supplier "${dupCheck.existing.supplier}" (${dupCheck.existing.id})`);
       return;
     }
     setSaving(true);
@@ -161,7 +193,13 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
             <div className="fdivider"><hr /><span>Supplier</span><hr /></div>
             <div className="ff">
               <label className="f-label">Supplier Name *</label>
-              <input className="f-input" placeholder="e.g. Tata Steel Ltd" value={form.supplier} onChange={set('supplier')} />
+              <input
+                className="f-input"
+                placeholder="e.g. Tata Steel Ltd"
+                value={form.supplier}
+                onChange={set('supplier')}
+                style={hasDuplicate ? { borderColor: 'var(--coral)' } : undefined}
+              />
             </div>
             <div className="ff">
               <label className="f-label">GSTIN</label>
@@ -179,7 +217,30 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
             <div className="fdivider"><hr /><span>Invoice Details</span><hr /></div>
             <div className="ff">
               <label className="f-label">Supplier Invoice No. *</label>
-              <input className="f-input" placeholder="TSL/2025/00187" value={form.invno} onChange={set('invno')} />
+              <input
+                className="f-input"
+                placeholder="TSL/2025/00187"
+                value={form.invno}
+                onChange={set('invno')}
+                style={hasDuplicate ? { borderColor: 'var(--coral)' } : undefined}
+              />
+              {dupCheck?.checking && (
+                <div style={{ fontSize: 11, color: 'var(--ink4)', marginTop: 4, fontFamily: "'JetBrains Mono',monospace" }}>
+                  Checking for duplicates…
+                </div>
+              )}
+              {hasDuplicate && dupCheck.existing && (
+                <div style={{ fontSize: 11.5, color: 'var(--coral)', marginTop: 4, fontWeight: 600 }}>
+                  ⚠ This invoice number has already been taken —{' '}
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>{dupCheck.existing.id}</span>{' '}
+                  for supplier "{dupCheck.existing.supplier}"
+                </div>
+              )}
+              {dupCheck && dupCheck.duplicate === false && (
+                <div style={{ fontSize: 11, color: 'var(--teal-700)', marginTop: 4 }}>
+                  ✓ Available
+                </div>
+              )}
             </div>
             <div className="ff">
               <label className="f-label">Invoice Date</label>
@@ -363,7 +424,12 @@ const InvoiceModal = ({ isOpen, onClose, onShowToast, onRefresh, invoice }) => {
 
         <div className="modal-ft">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={saving || hasDuplicate}
+            title={hasDuplicate ? 'Cannot save: this invoice number already exists for this supplier' : undefined}
+          >
             {saving ? 'Saving…' : isEdit ? 'Save Changes →' : 'Register & Begin Tracking →'}
           </button>
         </div>

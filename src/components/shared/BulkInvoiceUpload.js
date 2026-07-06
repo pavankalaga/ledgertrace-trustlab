@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { bulkCreateInvoices } from '../../api';
+import { bulkCreateInvoices, getInvoices } from '../../api';
 
 const DEPARTMENTS = ['Procurement', 'Accounts Payable', 'Finance', 'Logistics', 'Information Technology', 'CSD', 'Facilities', 'Biomedical Operations'];
 const PAYMENT_TERMS = ['Immediate', 'Net 15 Days', 'Net 30 Days', 'Net 45 Days', 'Net 60 Days'];
@@ -36,7 +36,11 @@ const excelDateToStr = (val) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const validateRow = (row) => {
+// Case-insensitive normalize for supplier+invno duplicate comparison.
+const dupKey = (supplier, invno) =>
+  `${asStr(supplier).toLowerCase()}|${asStr(invno).toLowerCase()}`;
+
+const validateRow = (row, existingKeys, seenKeys) => {
   const errors = [];
   for (const col of COLUMNS) {
     if (col.required && !asStr(row[col.key])) errors.push(`${col.label} is required`);
@@ -48,6 +52,14 @@ const validateRow = (row) => {
   if (base > 0 && total > 0 && total < base) errors.push('Total is less than Base — check GST');
   if (row.dept && !DEPARTMENTS.includes(row.dept)) errors.push(`Unknown Department "${row.dept}"`);
   if (row.receivedBy && !DEPARTMENTS.includes(row.receivedBy)) errors.push(`Unknown Received By Dept. "${row.receivedBy}"`);
+  if (row.supplier && row.invno) {
+    const key = dupKey(row.supplier, row.invno);
+    if (existingKeys && existingKeys.has(key)) {
+      errors.push(`Invoice No. "${row.invno}" already exists for supplier "${row.supplier}"`);
+    } else if (seenKeys && seenKeys.has(key)) {
+      errors.push(`Duplicate row: same supplier + invoice no. appears earlier in the file`);
+    }
+  }
   return errors;
 };
 
@@ -86,6 +98,14 @@ const BulkInvoiceUpload = ({ isOpen, onClose, onShowToast, onRefresh }) => {
     setFileName(file.name);
     setResult(null);
     try {
+      // Pull existing invoices once so we can flag DB duplicates during preview.
+      // Errors are non-fatal — we just skip the DB check if the fetch fails.
+      let existingKeys = new Set();
+      try {
+        const existing = await getInvoices();
+        existingKeys = new Set((existing || []).map(inv => dupKey(inv.supplier, inv.invno)));
+      } catch { /* ignore — backend will still catch dupes on submit */ }
+
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array', cellDates: false });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -114,6 +134,8 @@ const BulkInvoiceUpload = ({ isOpen, onClose, onShowToast, onRefresh }) => {
       const dataStart = looksLikeHints ? 2 : 1;
 
       const parsed = [];
+      // Track supplier+invno already seen in this file, so we can flag intra-file dupes too.
+      const seenKeys = new Set();
       for (let i = dataStart; i < raw.length; i++) {
         const arr = raw[i];
         // Skip fully empty rows
@@ -139,7 +161,9 @@ const BulkInvoiceUpload = ({ isOpen, onClose, onShowToast, onRefresh }) => {
           const gst  = Number(String(obj.gst ).replace(/[₹,\s]/g, '')) || 0;
           if (base > 0) obj.total = String(base + gst);
         }
-        parsed.push({ ...obj, _row: i + 1, _errors: validateRow(obj) });
+        const errors = validateRow(obj, existingKeys, seenKeys);
+        if (obj.supplier && obj.invno) seenKeys.add(dupKey(obj.supplier, obj.invno));
+        parsed.push({ ...obj, _row: i + 1, _errors: errors });
       }
       setRows(parsed);
     } catch (err) {

@@ -1,13 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const Invoice = require('../models/Invoice');
-const { create, bulkCreate, update, advanceStage } = require('../controllers/invoiceController');
+const { create, bulkCreate, update, advanceStage, checkDuplicate } = require('../controllers/invoiceController');
 
 // GET /api/invoices — return all invoices
 router.get('/', async (req, res) => {
   const invoices = await Invoice.find().sort({ createdAt: -1 });
   res.json(invoices);
 });
+
+// GET /api/invoices/check-duplicate — must come before /:id so it isn't captured as an id
+router.get('/check-duplicate', checkDuplicate);
 
 // GET /api/invoices/:id — return one invoice
 router.get('/:id', async (req, res) => {

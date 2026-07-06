@@ -20,7 +20,10 @@ async function fetchApi(endpoint) {
     headers: { ...getAuthHeaders() },
   });
   if (res.status === 401) { handleUnauthorized(res); return; }
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || data.message || `API error: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -31,7 +34,10 @@ async function mutateApi(endpoint, method, body) {
     body: JSON.stringify(body),
   });
   if (res.status === 401) { handleUnauthorized(res); return; }
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || data.message || `API error: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -74,6 +80,13 @@ export const getCompany = () => fetchApi('/company');
 // CREATE
 export const createInvoice = (data) => mutateApi('/invoices', 'POST', data);
 export const bulkCreateInvoices = (invoices) => mutateApi('/invoices/bulk', 'POST', { invoices });
+export const checkInvoiceDuplicate = ({ supplier, invno, excludeId }) => {
+  const params = new URLSearchParams();
+  if (supplier) params.set('supplier', supplier);
+  if (invno) params.set('invno', invno);
+  if (excludeId) params.set('excludeId', excludeId);
+  return fetchApi(`/invoices/check-duplicate?${params.toString()}`);
+};
 export const createSupplier = (data) => mutateApi('/suppliers', 'POST', data);
 export const createUser = (data) => mutateApi('/users', 'POST', data);
 

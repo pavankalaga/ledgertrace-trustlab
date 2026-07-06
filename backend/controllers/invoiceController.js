@@ -74,40 +74,101 @@ const buildInvoicePayload = (input, id) => {
 
 const formatInvoiceId = (num) => `INV-2025-${String(num).padStart(3, '0')}`;
 
-// Highest existing INV-YYYY-NNN sequence. Seeding from max (not count) prevents
-// collisions when historical rows, deletes, or prior bulk imports create gaps.
+// Highest existing INV-YYYY-NNN sequence across ALL years. Seeding from max (not
+// count) prevents collisions when historical rows, deletes, or prior bulk imports
+// create gaps in the sequence.
 const getMaxInvoiceNum = async () => {
-  const docs = await Invoice.find({ id: /^INV-\d{4}-\d+$/ }, { id: 1 }).lean();
-  return docs.reduce((max, d) => {
-    const m = String(d.id).match(/^INV-\d{4}-(\d+)$/);
-    const n = m ? parseInt(m[1], 10) : 0;
-    return n > max ? n : max;
-  }, 0);
+  const docs = await Invoice.find({}, { id: 1 }).lean();
+  let max = 0;
+  for (const d of docs) {
+    const m = String(d.id || '').match(/^INV-\d{4}-(\d+)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  }
+  return max;
+};
+
+const isDuplicateKey = (err) =>
+  !!(err && (err.code === 11000 || err.code === 11001 || /E11000/.test(err.message || '')));
+
+// Try Invoice.create with fresh IDs, walking past any dup-key collisions. Returns
+// the saved doc, or throws the last non-collision error (e.g. schema validation).
+const createWithUniqueId = async (input, seedNum) => {
+  let nextNum = seedNum;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const id = formatInvoiceId(nextNum);
+    try {
+      const payload = buildInvoicePayload(input, id);
+      const saved = await Invoice.create(payload);
+      return { invoice: saved, nextNum: nextNum + 1 };
+    } catch (err) {
+      lastErr = err;
+      if (isDuplicateKey(err)) {
+        // Advance one and also reconcile with DB max in case another writer sped ahead.
+        nextNum += 1;
+        const dbMax = (await getMaxInvoiceNum()) + 1;
+        if (dbMax > nextNum) nextNum = dbMax;
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr || new Error('Could not allocate a unique invoice ID after retries');
+};
+
+// Case-insensitive exact match on a string field. Returns the existing invoice (id + supplier + invno) or null.
+const findDuplicateInvoice = async (supplier, invno, excludeId) => {
+  const s = String(supplier || '').trim();
+  const n = String(invno || '').trim();
+  if (!s || !n) return null;
+  const esc = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const q = {
+    supplier: new RegExp(`^${esc(s)}$`, 'i'),
+    invno: new RegExp(`^${esc(n)}$`, 'i'),
+  };
+  if (excludeId) q.id = { $ne: excludeId };
+  return Invoice.findOne(q, { id: 1, supplier: 1, invno: 1 }).lean();
+};
+
+// GET /api/invoices/check-duplicate?supplier=&invno=&excludeId=
+// Returns { duplicate: bool, existing: { id, supplier, invno } | null }
+const checkDuplicate = async (req, res) => {
+  try {
+    const { supplier, invno, excludeId } = req.query;
+    const existing = await findDuplicateInvoice(supplier, invno, excludeId);
+    res.json({ duplicate: !!existing, existing: existing || null });
+  } catch (err) {
+    console.error('Check duplicate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // POST /api/invoices — create a single invoice
 const create = async (req, res) => {
   try {
-    let nextNum = (await getMaxInvoiceNum()) + 1;
-    let invoice = null;
-    for (let attempt = 0; attempt < 5 && !invoice; attempt++) {
-      const id = formatInvoiceId(nextNum);
-      try {
-        const payload = buildInvoicePayload(req.body, id);
-        invoice = await Invoice.create(payload);
-      } catch (e) {
-        if (e && e.code === 11000) {
-          nextNum = (await getMaxInvoiceNum()) + 1;
-          continue;
-        }
-        throw e;
-      }
+    if (!req.body?.supplier || !req.body?.invno) {
+      return res.status(400).json({ error: 'Supplier Name and Supplier Invoice No. are required' });
     }
-    if (!invoice) return res.status(500).json({ error: 'Could not allocate a unique invoice ID after retries' });
+    const dup = await findDuplicateInvoice(req.body.supplier, req.body.invno);
+    if (dup) {
+      return res.status(409).json({
+        error: `Invoice No. "${dup.invno}" already exists for supplier "${dup.supplier}" (${dup.id})`,
+        existing: dup,
+      });
+    }
+    const seed = (await getMaxInvoiceNum()) + 1;
+    const { invoice } = await createWithUniqueId(req.body, seed);
     res.status(201).json(invoice);
   } catch (err) {
-    console.error('Create invoice error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Create invoice error:', err.message, err.code || '', err.errors || '');
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors || {}).map(e => e.message);
+      return res.status(400).json({ error: messages.join('; ') || err.message });
+    }
+    res.status(400).json({ error: err.message || 'Could not create invoice' });
   }
 };
 
@@ -124,42 +185,34 @@ const bulkCreate = async (req, res) => {
 
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i] || {};
-      let created = null;
-      let lastErr = null;
-      for (let attempt = 0; attempt < 5 && !created; attempt++) {
-        try {
-          if (!raw.supplier || !raw.invno) {
-            throw new Error('Supplier Name and Supplier Invoice No. are required');
-          }
-          const id = formatInvoiceId(nextNum);
-          const payload = buildInvoicePayload(raw, id);
-          created = await Invoice.create(payload);
-          nextNum += 1;
-        } catch (err) {
-          lastErr = err;
-          if (err && err.code === 11000) {
-            nextNum = (await getMaxInvoiceNum()) + 1;
-            continue;
-          }
-          break;
+      try {
+        if (!raw.supplier || !raw.invno) {
+          throw new Error('Supplier Name and Supplier Invoice No. are required');
         }
-      }
-      if (created) {
+        const dup = await findDuplicateInvoice(raw.supplier, raw.invno);
+        if (dup) {
+          throw new Error(`Duplicate: Invoice No. "${dup.invno}" already exists for supplier "${dup.supplier}" (${dup.id})`);
+        }
+        const { invoice, nextNum: advanced } = await createWithUniqueId(raw, nextNum);
+        nextNum = advanced;
         results.succeeded += 1;
-        results.createdIds.push(created.id);
-      } else {
+        results.createdIds.push(invoice.id);
+      } catch (err) {
+        const msg = err.name === 'ValidationError'
+          ? Object.values(err.errors || {}).map(e => e.message).join('; ') || err.message
+          : err.message;
         results.failed.push({
           row: i + 2, // header is row 1, first data row is 2
           supplier: raw.supplier || '',
           invno: raw.invno || '',
-          error: (lastErr && lastErr.message) || 'Unknown error',
+          error: msg || 'Unknown error',
         });
       }
     }
     res.json(results);
   } catch (err) {
     console.error('Bulk create error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
 
@@ -216,4 +269,4 @@ const advanceStage = async (req, res) => {
   }
 };
 
-module.exports = { create, bulkCreate, update, advanceStage };
+module.exports = { create, bulkCreate, update, advanceStage, checkDuplicate };
