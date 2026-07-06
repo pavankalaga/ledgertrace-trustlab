@@ -72,15 +72,38 @@ const buildInvoicePayload = (input, id) => {
   };
 };
 
-const nextInvoiceIdFromCount = (count) => `INV-2025-${String(count + 45).padStart(3, '0')}`;
+const formatInvoiceId = (num) => `INV-2025-${String(num).padStart(3, '0')}`;
+
+// Highest existing INV-YYYY-NNN sequence. Seeding from max (not count) prevents
+// collisions when historical rows, deletes, or prior bulk imports create gaps.
+const getMaxInvoiceNum = async () => {
+  const docs = await Invoice.find({ id: /^INV-\d{4}-\d+$/ }, { id: 1 }).lean();
+  return docs.reduce((max, d) => {
+    const m = String(d.id).match(/^INV-\d{4}-(\d+)$/);
+    const n = m ? parseInt(m[1], 10) : 0;
+    return n > max ? n : max;
+  }, 0);
+};
 
 // POST /api/invoices — create a single invoice
 const create = async (req, res) => {
   try {
-    const count = await Invoice.countDocuments();
-    const id = nextInvoiceIdFromCount(count);
-    const payload = buildInvoicePayload(req.body, id);
-    const invoice = await Invoice.create(payload);
+    let nextNum = (await getMaxInvoiceNum()) + 1;
+    let invoice = null;
+    for (let attempt = 0; attempt < 5 && !invoice; attempt++) {
+      const id = formatInvoiceId(nextNum);
+      try {
+        const payload = buildInvoicePayload(req.body, id);
+        invoice = await Invoice.create(payload);
+      } catch (e) {
+        if (e && e.code === 11000) {
+          nextNum = (await getMaxInvoiceNum()) + 1;
+          continue;
+        }
+        throw e;
+      }
+    }
+    if (!invoice) return res.status(500).json({ error: 'Could not allocate a unique invoice ID after retries' });
     res.status(201).json(invoice);
   } catch (err) {
     console.error('Create invoice error:', err.message);
@@ -96,27 +119,40 @@ const bulkCreate = async (req, res) => {
     if (rows.length === 0) return res.status(400).json({ error: 'No invoices provided' });
     if (rows.length > 500) return res.status(400).json({ error: 'Max 500 invoices per bulk upload' });
 
-    let count = await Invoice.countDocuments();
+    let nextNum = (await getMaxInvoiceNum()) + 1;
     const results = { total: rows.length, succeeded: 0, failed: [], createdIds: [] };
 
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i] || {};
-      try {
-        if (!raw.supplier || !raw.invno) {
-          throw new Error('supplier and invno are required');
+      let created = null;
+      let lastErr = null;
+      for (let attempt = 0; attempt < 5 && !created; attempt++) {
+        try {
+          if (!raw.supplier || !raw.invno) {
+            throw new Error('Supplier Name and Supplier Invoice No. are required');
+          }
+          const id = formatInvoiceId(nextNum);
+          const payload = buildInvoicePayload(raw, id);
+          created = await Invoice.create(payload);
+          nextNum += 1;
+        } catch (err) {
+          lastErr = err;
+          if (err && err.code === 11000) {
+            nextNum = (await getMaxInvoiceNum()) + 1;
+            continue;
+          }
+          break;
         }
-        const id = nextInvoiceIdFromCount(count);
-        const payload = buildInvoicePayload(raw, id);
-        const invoice = await Invoice.create(payload);
-        count += 1;
+      }
+      if (created) {
         results.succeeded += 1;
-        results.createdIds.push(invoice.id);
-      } catch (err) {
+        results.createdIds.push(created.id);
+      } else {
         results.failed.push({
           row: i + 2, // header is row 1, first data row is 2
           supplier: raw.supplier || '',
           invno: raw.invno || '',
-          error: err.message,
+          error: (lastErr && lastErr.message) || 'Unknown error',
         });
       }
     }
