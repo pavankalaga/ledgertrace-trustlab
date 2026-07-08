@@ -180,9 +180,6 @@ const RenewalModal = ({ isOpen, onClose }) => {
   return (
     <LoanModal isOpen={isOpen} onClose={onClose} width={620}>
       <h3>Renew / Restructure Facility</h3>
-      <p style={{ fontSize: 12, color: 'var(--ldk-muted)', margin: '-6px 0 14px' }}>
-        Live facility — annual CC/OD renewal, rate reset, tenure or EMI reset, top-up/enhancement, or structure conversion. Facility keeps its ID and history.
-      </p>
       <div className="form-grid">
         <div className="fg full"><label>Facility</label>
           <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
@@ -297,9 +294,6 @@ const ClosureModal = ({ isOpen, onClose }) => {
   return (
     <LoanModal isOpen={isOpen} onClose={onClose} width={560}>
       <h3>Record Early Closure (Foreclosure)</h3>
-      <p style={{ fontSize: 12, color: 'var(--ldk-muted)', margin: '-6px 0 14px' }}>
-        Full prepayment from TDPL's own funds. Retained as history with status "Closed — Early". The closure compliance checklist tracks NOC, deeds, CHG-4, insurance, NACH and guarantee release.
-      </p>
       <div className="form-grid">
         <div className="fg full"><label>Facility Being Closed</label>
           <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
@@ -380,9 +374,6 @@ const TakeoverModal = ({ isOpen, onClose }) => {
   return (
     <LoanModal isOpen={isOpen} onClose={onClose}>
       <h3>Record Loan Takeover (Balance Transfer)</h3>
-      <p style={{ fontSize: 12, color: 'var(--ldk-muted)', margin: '-6px 0 14px' }}>
-        Existing facility is retained as history with status "Taken Over"; a new facility is created and cross-linked. Compliance items tracked on the takeover checklist.
-      </p>
       <div className="form-grid">
         <div className="fg full"><label>Facility Being Taken Over</label>
           <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
@@ -446,11 +437,7 @@ const LoanRegister = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Loan Register</h1>
-          <p>Every borrowing facility — live, taken over, or closed — with sanction detail, outstanding, rate and progress. Click a row for full amortisation.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Loan Register</h1></div>
       </div>
 
       <div className="toolbar">
@@ -550,7 +537,6 @@ const LoanRegister = () => {
           </tbody>
         </table>
       </div>
-      <p className="sec-note">Figures in ₹. Click any row to open the amortisation schedule and repayment history for that facility.</p>
 
       <AddEditLoanModal isOpen={modal === 'add' || modal === 'edit'} onClose={() => { setModal(null); setEditingId(null); }} editingId={editingId} />
       <RenewalModal isOpen={modal === 'renew'} onClose={() => setModal(null)} />

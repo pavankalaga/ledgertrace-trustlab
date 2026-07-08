@@ -27,11 +27,7 @@ const LoanRepayments = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Repayments Ledger</h1>
-          <p>Chronological record of all EMI and interest servicing debits across every facility. Feeds the borrowings note for statutory accounts and the MY TRUST REPORT finance brief.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Repayments Ledger</h1></div>
       </div>
 
       <div className="ldk-card">

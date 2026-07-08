@@ -153,9 +153,6 @@ const PrepaymentModal = ({ isOpen, onClose, defaultLoanId }) => {
   return (
     <LoanModal isOpen={isOpen} onClose={onClose} width={540}>
       <h3>Record Lumpsum Prepayment</h3>
-      <p style={{ fontSize: 12, color: 'var(--ldk-muted)', margin: '-6px 0 14px' }}>
-        Extra principal paid over and above the EMI. The amortisation schedule recomputes from the prepayment date.
-      </p>
       <div className="form-grid">
         <div className="fg full"><label>Facility</label>
           <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
@@ -207,7 +204,7 @@ const LoanAmortisation = () => {
     return (
       <div className="ldk">
         <div className="ldk-pghd">
-          <div><h1>Amortisation</h1><p>Select a facility to see its schedule.</p></div>
+          <div><h1>Amortisation</h1></div>
         </div>
         <div className="ldk-card ldk-empty">No facility selected.</div>
       </div>
@@ -222,11 +219,7 @@ const LoanAmortisation = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Amortisation</h1>
-          <p>Full repayment schedule for the selected facility. Term loans show the EMI schedule; Dropline OD shows the operative-limit step-down; CC/OD shows monthly interest.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Amortisation</h1></div>
       </div>
 
       <div className="toolbar">
@@ -421,7 +414,6 @@ const DroplineView = ({ l }) => {
           </tbody>
         </table>
       </div>
-      <p className="sec-note">Paydown column assumes utilisation stays at today's level — it falls as you repay. Interest is charged only on utilisation, not on the limit.</p>
     </>
   );
 };

@@ -100,11 +100,7 @@ const MortgagedProperties = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Property Mortgage Register</h1>
-          <p>Immovable properties mortgaged as security for TDPL borrowings — title particulars, mortgage creation, valuation and insurance. Title deeds held by the first-charge lender.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Property Mortgage Register</h1></div>
       </div>
 
       <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
@@ -113,9 +109,9 @@ const MortgagedProperties = () => {
 
       <div className="ldk-kpis">
         <div className="ldk-kpi"><div className="lbl">Properties Mortgaged</div><div className="val">{PROPERTIES.length}</div></div>
-        <div className="ldk-kpi"><div className="lbl">Aggregate Market Value</div><div className="val">{fmtLakh(totVal)}</div><div className="sub">per latest bank-empanelled valuations</div></div>
-        <div className="ldk-kpi gold"><div className="lbl">Secured Outstanding</div><div className="val">{fmtLakh(securedOut)}</div><div className="sub">facilities backed by these properties</div></div>
-        <div className="ldk-kpi gold"><div className="lbl">Collateral Cover</div><div className="val">{cover ? cover.toFixed(2) + '×' : '—'}</div><div className="sub">market value / secured outstanding</div></div>
+        <div className="ldk-kpi"><div className="lbl">Aggregate Market Value</div><div className="val">{fmtLakh(totVal)}</div></div>
+        <div className="ldk-kpi gold"><div className="lbl">Secured Outstanding</div><div className="val">{fmtLakh(securedOut)}</div></div>
+        <div className="ldk-kpi gold"><div className="lbl">Collateral Cover</div><div className="val">{cover ? cover.toFixed(2) + '×' : '—'}</div></div>
       </div>
 
       {PROPERTIES.length === 0 && <div className="ldk-card ldk-empty">No mortgaged properties on record.</div>}

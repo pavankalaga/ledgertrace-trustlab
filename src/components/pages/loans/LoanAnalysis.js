@@ -94,11 +94,7 @@ const LoanAnalysis = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Loan Analysis</h1>
-          <p>Portfolio-level view of TDPL bank borrowings — total sanction, outstanding, EMI load and covenant health across all live facilities.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Loan Analysis</h1></div>
       </div>
 
       {/* Alerts */}
@@ -119,7 +115,7 @@ const LoanAnalysis = () => {
         <div className="ldk-kpi">
           <div className="lbl">Total Sanctioned</div>
           <div className="val">{fmtLakh(totSanc)}</div>
-          <div className="sub">{live.length} live facilities</div>
+          <div className="sub">{live.length} live {live.length === 1 ? 'facility' : 'facilities'}</div>
         </div>
         <div className="ldk-kpi">
           <div className="lbl">Total Outstanding</div>
@@ -129,17 +125,14 @@ const LoanAnalysis = () => {
         <div className="ldk-kpi gold">
           <div className="lbl">Monthly EMI Obligation</div>
           <div className="val">{fmtLakh(mEmi)}</div>
-          <div className="sub">term facilities only; CC interest extra</div>
         </div>
         <div className="ldk-kpi gold">
           <div className="lbl">Weighted Avg. Rate</div>
           <div className="val">{wRoi.toFixed(2)}%</div>
-          <div className="sub">outstanding-weighted, p.a.</div>
         </div>
         <div className="ldk-kpi">
           <div className="lbl">CC/OD Headroom</div>
           <div className="val">{fmtLakh(ccHead)}</div>
-          <div className="sub">undrawn working-capital limit</div>
         </div>
       </div>
 
@@ -163,7 +156,6 @@ const LoanAnalysis = () => {
 
       {/* Obligations next 90 days */}
       <h2 className="sec">Obligations — Next 90 Days</h2>
-      <p className="sec-note">EMIs falling due, working-capital renewals and compliance submissions across all live facilities.</p>
       <div className="ldk-card">
         <table>
           <thead>

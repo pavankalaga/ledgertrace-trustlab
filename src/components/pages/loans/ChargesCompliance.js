@@ -20,11 +20,7 @@ const ChargesCompliance = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Charges &amp; Compliance</h1>
-          <p>ROC charge register under the Companies Act, 2013 — CHG-1 filings within 30 days of creation, CHG-4 satisfaction on closure. Mirrors the TrustComply CS desk.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Charges &amp; Compliance</h1></div>
       </div>
 
       <h2 className="sec">ROC Charge Register</h2>
@@ -85,13 +81,6 @@ const ChargesCompliance = () => {
         </table>
       </div>
 
-      <h2 className="sec">Cross-Departmental Handoffs</h2>
-      <div className="ldk-card" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
-        <b>Accounts (Corporate Services):</b> loan disbursement capitalisation, interest accrual and TDS on interest where applicable, borrowings note disclosure, insurance premium payment on hypothecated assets.<br />
-        <b>Company Secretary desk (TrustComply):</b> CHG-1 / CHG-4 filings, board resolutions for borrowing and security creation under s.179(3), annual return disclosure of indebtedness.<br />
-        <b>Procurement:</b> equipment finance facilities to be raised only against approved capital purchase requisitions; supplier quotations attached to the sanction file.<br />
-        <b>BMO / TAMS:</b> hypothecated equipment tagged in TAMS with lender lien flag; disposal of charged assets blocked until charge satisfaction.
-      </div>
     </div>
   );
 };

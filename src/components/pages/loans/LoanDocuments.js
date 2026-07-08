@@ -55,11 +55,7 @@ const LoanDocuments = () => {
   return (
     <div className="ldk">
       <div className="ldk-pghd">
-        <div>
-          <h1>Loan Document Repository</h1>
-          <p>Every document in the borrowing lifecycle, per facility and per stage — application, sanction/approval, security &amp; charge, disbursement, servicing, and event documents.</p>
-        </div>
-        <span className="ldk-code">TL-FIN-BLM-001 · Rev 1.0</span>
+        <div><h1>Loan Document Repository</h1></div>
       </div>
 
       <div className="ldk-card">
@@ -90,9 +86,6 @@ const LoanDocuments = () => {
             </div>
           </div>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--ldk-muted)', marginTop: 8 }}>
-          Files are held in browser memory in this preview build — production wiring should point to object storage (e.g. S3/GCS) with the same metadata model.
-        </p>
       </div>
 
       <div className="toolbar">
