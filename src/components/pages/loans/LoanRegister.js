@@ -55,7 +55,7 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
     if (b) setForm((f) => ({ ...f, lender: b.name, branch: b.branchCode || '' }));
   };
 
-  const save = () => {
+  const save = async () => {
     if (!form.lender || !form.sanctioned) {
       alert('Please pick a bank and enter the sanctioned amount.');
       return;
@@ -71,11 +71,17 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
       renewal: form.renewal || null,
     };
     let targetId;
-    if (editingId) {
-      updateLoan(editingId, payload);
-      targetId = editingId;
-    } else {
-      targetId = addLoan(payload).id;
+    try {
+      if (editingId) {
+        updateLoan(editingId, payload);
+        targetId = editingId;
+      } else {
+        const created = await addLoan(payload);
+        targetId = created.id;
+      }
+    } catch (err) {
+      alert('Could not save facility: ' + (err.message || 'unknown error'));
+      return;
     }
     if (files && files.length) attachFiles(targetId, filesStage, files);
     onClose();
@@ -393,14 +399,19 @@ const TakeoverModal = ({ isOpen, onClose }) => {
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const save = () => {
+  const save = async () => {
     if (!form.lender || !form.sanctioned) {
       alert('New lender and sanctioned amount are required.');
       return;
     }
-    const newId = recordTakeover(loanId, form);
-    if (newId && files && files.length) {
-      attachFiles(loanId, 'Takeover', files, 'Takeover by ' + form.lender + ' — successor ' + newId);
+    try {
+      const newId = await recordTakeover(loanId, form);
+      if (newId && files && files.length) {
+        attachFiles(loanId, 'Takeover', files, 'Takeover by ' + form.lender + ' — successor ' + newId);
+      }
+    } catch (err) {
+      alert('Could not save takeover: ' + (err.message || 'unknown error'));
+      return;
     }
     onClose();
   };

@@ -105,6 +105,12 @@ export const createBank = (data)     => mutateApi('/banks',     'POST',   data);
 export const updateBankApi = (id, d) => mutateApi(`/banks/${id}`, 'PUT',    d);
 export const deleteBankApi = (id)    => mutateApi(`/banks/${id}`, 'DELETE');
 
+// LOANS / FACILITIES (Loan Management + external consumers like TruFin)
+export const getLoansApi   = ()          => fetchApi('/loans');
+export const createLoanApi = (data)      => mutateApi('/loans',        'POST',   data);
+export const updateLoanApi = (id, data)  => mutateApi(`/loans/${id}`,  'PUT',    data);
+export const deleteLoanApi = (id)        => mutateApi(`/loans/${id}`,  'DELETE');
+
 // ── FIXED PAYMENTS ────────────────────────────────────────────────────
 export const getFixedForecasts = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
