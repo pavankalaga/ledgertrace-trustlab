@@ -25,24 +25,26 @@ const routes = [
   { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Overview', component: SpendAnalytics, icon: 'analytics' },
   { path: '/reports', key: 'reports', label: 'Reports & Analytics', section: 'Overview', component: Reports, icon: 'reports' },
 
-  // ── Workflow ─────────────────────────────────────────────────────────
-  { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Workflow', component: Invoices, icon: 'invoices' },
-  { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Workflow', component: PDCTracker, icon: 'pdc' },
-  { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Workflow', component: ChequeTracker, icon: 'cheque' },
-  { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Workflow', component: TransactionsRegister, icon: 'register' },
-  { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Workflow', component: Suppliers, icon: 'suppliers' },
+  // ── Invoice Management ───────────────────────────────────────────────
+  { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Invoice Management', component: Invoices, icon: 'invoices' },
+  { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Invoice Management', component: TransactionsRegister, icon: 'register' },
+  { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Invoice Management', component: Suppliers, icon: 'suppliers' },
 
-  // ── Payments ─────────────────────────────────────────────────────────
-  { path: '/payments', key: 'payments', label: 'Payments', section: 'Payments', component: Payments, icon: 'payments' },
-  { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Payments', component: FixedPayments, icon: 'fixed' },
-  { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payments', component: AdvancePayments, icon: 'advance' },
+  // ── Cheque Management ────────────────────────────────────────────────
+  { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Cheque Management', component: PDCTracker, icon: 'pdc' },
+  { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Cheque Management', component: ChequeTracker, icon: 'cheque' },
+
+  // ── Payment Management ───────────────────────────────────────────────
+  { path: '/payments', key: 'payments', label: 'Payments', section: 'Payment Management', component: Payments, icon: 'payments' },
+  { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Payment Management', component: FixedPayments, icon: 'fixed' },
+  { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payment Management', component: AdvancePayments, icon: 'advance' },
 
   // ── System (CMD-only) ────────────────────────────────────────────────
   { path: '/settings', key: 'settings', label: 'Settings', section: 'System', component: Settings, icon: 'settings' },
 
   // ── Hidden from sidebar but still routable ───────────────────────────
-  { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Workflow', component: Pending, icon: 'pending', hideFromSidebar: true },
-  { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals', hideFromSidebar: true },
+  { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Invoice Management', component: Pending, icon: 'pending', hideFromSidebar: true },
+  { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Invoice Management', component: Approvals, icon: 'approvals', hideFromSidebar: true },
 ];
 
 export default routes;
