@@ -15,6 +15,15 @@ import Suppliers from './components/pages/Suppliers';
 import Settings from './components/pages/Settings';
 import MLD from './components/pages/MLD';
 
+// LoanDesk (TL-FIN-BLM-001) — bank loan / borrowings management.
+import LoanAnalysis from './components/pages/loans/LoanAnalysis';
+import LoanRegister from './components/pages/loans/LoanRegister';
+import LoanAmortisation from './components/pages/loans/LoanAmortisation';
+import LoanRepayments from './components/pages/loans/LoanRepayments';
+import LoanDocuments from './components/pages/loans/LoanDocuments';
+import MortgagedProperties from './components/pages/loans/MortgagedProperties';
+import ChargesCompliance from './components/pages/loans/ChargesCompliance';
+
 // `hideFromSidebar` keeps the route registered (deep links still work) but
 // hides the item from the sidebar navigation.
 const routes = [
@@ -23,6 +32,7 @@ const routes = [
 
   // ── Overview ─────────────────────────────────────────────────────────
   { path: '/', key: 'dashboard', label: 'Dashboard', section: 'Overview', component: Dashboard, icon: 'dashboard' },
+  { path: '/loans/analysis', key: 'loan-analysis', label: 'Loan Analysis', section: 'Overview', component: LoanAnalysis, icon: 'loan-analysis' },
   { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Overview', component: SpendAnalytics, icon: 'analytics' },
   { path: '/reports', key: 'reports', label: 'Reports & Analytics', section: 'Overview', component: Reports, icon: 'reports' },
 
@@ -42,6 +52,14 @@ const routes = [
   { path: '/payments', key: 'payments', label: 'Payments', section: 'Payment Management', component: Payments, icon: 'payments' },
   { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Payment Management', component: FixedPayments, icon: 'fixed' },
   { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payment Management', component: AdvancePayments, icon: 'advance' },
+
+  // ── Loan Management (LoanDesk) ───────────────────────────────────────
+  { path: '/loans/register', key: 'loan-register', label: 'Loan Register', section: 'Loan Management', component: LoanRegister, icon: 'loan-register' },
+  { path: '/loans/amortisation', key: 'loan-amortisation', label: 'Amortisation', section: 'Loan Management', component: LoanAmortisation, icon: 'loan-amort' },
+  { path: '/loans/repayments', key: 'loan-repayments', label: 'Repayments', section: 'Loan Management', component: LoanRepayments, icon: 'loan-repay' },
+  { path: '/loans/documents', key: 'loan-documents', label: 'Loan Documents', section: 'Loan Management', component: LoanDocuments, icon: 'loan-docs' },
+  { path: '/loans/properties', key: 'loan-properties', label: 'Mortgaged Properties', section: 'Loan Management', component: MortgagedProperties, icon: 'loan-property' },
+  { path: '/loans/charges', key: 'loan-charges', label: 'Charges & Compliance', section: 'Loan Management', component: ChargesCompliance, icon: 'loan-charges' },
 
   // ── System (CMD-only) ────────────────────────────────────────────────
   { path: '/settings', key: 'settings', label: 'Settings', section: 'System', component: Settings, icon: 'settings' },

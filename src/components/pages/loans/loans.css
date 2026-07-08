@@ -1,0 +1,206 @@
+/* =====================================================================
+   LoanDesk pages — shared styles.
+   Ported from TL-FIN-BLM-001 with a `.ldk` scope prefix so it can't
+   collide with the rest of the LedgerTrace app.
+   ===================================================================== */
+
+.ldk {
+  --ldk-teal: #00B49A;
+  --ldk-teal-dark: #008E7A;
+  --ldk-teal-soft: #E6F7F4;
+  --ldk-gold: #F0B429;
+  --ldk-gold-soft: #FDF3DC;
+  --ldk-green: #1A3A2A;
+  --ldk-green-deep: #0F2419;
+  --ldk-ink: #1E2B26;
+  --ldk-muted: #6B7A74;
+  --ldk-line: #DCE5E1;
+  --ldk-paper: #F7FAF9;
+  --ldk-card: #FFFFFF;
+  --ldk-red: #C64535;
+  --ldk-red-soft: #FBEAE7;
+  --ldk-amber: #B87A00;
+  --ldk-amber-soft: #FFF4DE;
+  --ldk-ok: #1E8E5A;
+  --ldk-ok-soft: #E7F6EE;
+  --ldk-radius: 10px;
+
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  color: var(--ldk-ink);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 22px 24px 48px;
+}
+.ldk .ldk-mono { font-family: 'Space Mono', monospace; }
+
+/* Page header — inline title bar (React doesn't repeat the HTML hero) */
+.ldk .ldk-pghd {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 16px; flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ldk-line);
+}
+.ldk .ldk-pghd h1 {
+  font-family: 'Bebas Neue', system-ui, sans-serif;
+  font-size: 30px; letter-spacing: 1.6px; color: var(--ldk-green);
+  line-height: 1;
+}
+.ldk .ldk-pghd p {
+  font-size: 12.5px; color: var(--ldk-muted); margin-top: 6px; max-width: 640px;
+}
+.ldk .ldk-pghd .ldk-code {
+  font-family: 'Space Mono', monospace; font-size: 10.5px;
+  border: 1px solid var(--ldk-line);
+  padding: 3px 10px; border-radius: 20px; color: var(--ldk-muted);
+}
+
+/* KPI cards */
+.ldk .ldk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.ldk .ldk-kpi {
+  background: var(--ldk-card); border: 1px solid var(--ldk-line);
+  border-radius: var(--ldk-radius); padding: 16px 18px;
+  position: relative; overflow: hidden;
+}
+.ldk .ldk-kpi::after {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ldk-teal);
+}
+.ldk .ldk-kpi.gold::after { background: var(--ldk-gold); }
+.ldk .ldk-kpi.red::after  { background: var(--ldk-red); }
+.ldk .ldk-kpi .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--ldk-muted); font-weight: 700; }
+.ldk .ldk-kpi .val { font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700; color: var(--ldk-green); margin-top: 4px; }
+.ldk .ldk-kpi .sub { font-size: 11px; color: var(--ldk-muted); margin-top: 2px; }
+
+/* Section headers */
+.ldk h2.sec {
+  font-family: 'Bebas Neue', system-ui, sans-serif;
+  font-size: 22px; letter-spacing: 1.5px; color: var(--ldk-green);
+  margin: 24px 0 10px;
+}
+.ldk h2.sec:first-child { margin-top: 0; }
+.ldk .sec-note { font-size: 12px; color: var(--ldk-muted); margin: -6px 0 12px; }
+
+/* Cards & tables */
+.ldk .ldk-card { background: var(--ldk-card); border: 1px solid var(--ldk-line); border-radius: var(--ldk-radius); padding: 18px 20px; margin-bottom: 14px; }
+.ldk table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ldk th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .7px; color: var(--ldk-muted); font-weight: 700; padding: 8px 10px; border-bottom: 2px solid var(--ldk-line); white-space: nowrap; background: transparent; }
+.ldk td { padding: 9px 10px; border-bottom: 1px solid var(--ldk-line); vertical-align: top; }
+.ldk tr:last-child td { border-bottom: none; }
+.ldk tr.clickable { cursor: pointer; }
+.ldk tr.clickable:hover td { background: var(--ldk-teal-soft); }
+.ldk td.num, .ldk th.num { text-align: right; font-family: 'Space Mono', monospace; white-space: nowrap; }
+
+/* Tags & pills */
+.ldk .ldk-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 12px; white-space: nowrap; }
+.ldk .ldk-tag.tl    { background: var(--ldk-teal-soft); color: var(--ldk-teal-dark); }
+.ldk .ldk-tag.cc    { background: var(--ldk-gold-soft); color: var(--ldk-amber); }
+.ldk .ldk-tag.vh    { background: #EDEBFF; color: #5A4FCF; }
+.ldk .ldk-tag.eq    { background: #E8F1FB; color: #2A6BB0; }
+.ldk .ldk-tag.ok    { background: var(--ldk-ok-soft); color: var(--ldk-ok); }
+.ldk .ldk-tag.due   { background: var(--ldk-amber-soft); color: var(--ldk-amber); }
+.ldk .ldk-tag.over  { background: var(--ldk-red-soft); color: var(--ldk-red); }
+.ldk .ldk-tag.closed{ background: #EEE; color: #777; }
+.ldk .ldk-tag.reg   { background: var(--ldk-ok-soft); color: var(--ldk-ok); }
+.ldk .ldk-tag.tko   { background: #EDEBFF; color: #5A4FCF; }
+.ldk .ldk-tag.pend  { background: var(--ldk-red-soft); color: var(--ldk-red); }
+
+.ldk .stage-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 12px; background: var(--ldk-teal-soft); color: var(--ldk-teal-dark); white-space: nowrap; }
+.ldk .stage-tag.s-app { background: #E8F1FB; color: #2A6BB0; }
+.ldk .stage-tag.s-sanc { background: var(--ldk-ok-soft); color: var(--ldk-ok); }
+.ldk .stage-tag.s-sec { background: var(--ldk-gold-soft); color: var(--ldk-amber); }
+.ldk .stage-tag.s-evt { background: #EDEBFF; color: #5A4FCF; }
+
+.ldk .link-chip { display: inline-block; font-family: 'Space Mono', monospace; font-size: 10.5px; background: var(--ldk-teal-soft); color: var(--ldk-teal-dark); border-radius: 10px; padding: 1px 8px; cursor: pointer; }
+.ldk .link-chip:hover { background: var(--ldk-teal); color: #fff; }
+.ldk .doc-chip { display: inline-block; font-family: 'Space Mono', monospace; font-size: 10px; background: #EFF3F1; color: var(--ldk-muted); border-radius: 10px; padding: 1px 8px; cursor: pointer; margin-left: 4px; }
+.ldk .doc-chip:hover { background: var(--ldk-teal-soft); color: var(--ldk-teal-dark); }
+
+/* Buttons */
+.ldk .ldk-btn { border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 12.5px; padding: 9px 18px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ldk .ldk-btn.primary { background: var(--ldk-teal); color: #fff; }
+.ldk .ldk-btn.primary:hover { background: var(--ldk-teal-dark); }
+.ldk .ldk-btn.ghost { background: transparent; border: 1px solid var(--ldk-line); color: var(--ldk-green); }
+.ldk .ldk-btn.ghost:hover { border-color: var(--ldk-teal); color: var(--ldk-teal-dark); }
+.ldk .ldk-btn.danger { background: var(--ldk-red-soft); color: var(--ldk-red); }
+.ldk .ldk-btn.sm { padding: 5px 12px; font-size: 11.5px; }
+
+.ldk .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.ldk .toolbar .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.ldk select, .ldk input[type=text], .ldk input[type=number], .ldk input[type=date], .ldk input[type=file] {
+  font-family: 'DM Sans', sans-serif; font-size: 12.5px; padding: 8px 10px;
+  border: 1px solid var(--ldk-line); border-radius: 8px; background: #fff; color: var(--ldk-ink);
+}
+.ldk select:focus, .ldk input:focus { outline: 2px solid var(--ldk-teal); outline-offset: 1px; border-color: var(--ldk-teal); }
+
+/* Alerts strip */
+.ldk .ldk-alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.ldk .ldk-alert { display: flex; gap: 12px; align-items: flex-start; border-radius: var(--ldk-radius); padding: 11px 14px; font-size: 12.5px; border: 1px solid; }
+.ldk .ldk-alert.red   { background: var(--ldk-red-soft); border-color: #F2C7C0; color: #7A2A1E; }
+.ldk .ldk-alert.amber { background: var(--ldk-amber-soft); border-color: #F1DCAE; color: #6B4A00; }
+.ldk .ldk-alert .ico { font-size: 15px; line-height: 1.2; }
+.ldk .ldk-alert .when { font-family: 'Space Mono', monospace; font-size: 11px; margin-left: auto; white-space: nowrap; opacity: .75; }
+
+/* Mix bars */
+.ldk .mixbar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin: 10px 0 8px; background: #EAEFEC; }
+.ldk .mixbar span { display: block; height: 100%; }
+.ldk .mix-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11.5px; color: var(--ldk-muted); }
+.ldk .mix-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+/* Detail grid (used by amortisation / property cards) */
+.ldk .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.ldk .dfield .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--ldk-muted); font-weight: 700; }
+.ldk .dfield .v { font-size: 13px; font-weight: 500; margin-top: 2px; word-break: break-word; }
+
+/* Modals */
+.ldk-modal-bg {
+  position: fixed; inset: 0; background: rgba(15, 36, 25, .55); z-index: 100;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px; overflow: auto;
+}
+.ldk-modal {
+  background: #fff; border-radius: 14px; width: 100%; max-width: 680px;
+  padding: 24px 26px; box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+  font-family: 'DM Sans', sans-serif; color: var(--ldk-ink); font-size: 14px;
+}
+.ldk-modal h3 { font-family: 'Bebas Neue', system-ui, sans-serif; font-size: 22px; letter-spacing: 1.2px; color: var(--ldk-green); margin-bottom: 14px; }
+.ldk-modal .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ldk-modal .form-grid .full { grid-column: 1 / -1; }
+.ldk-modal .fg label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--ldk-muted); margin-bottom: 4px; }
+.ldk-modal .fg input, .ldk-modal .fg select {
+  width: 100%; font-family: 'DM Sans', sans-serif; font-size: 12.5px; padding: 8px 10px;
+  border: 1px solid var(--ldk-line); border-radius: 8px; background: #fff; color: var(--ldk-ink);
+}
+.ldk-modal .fg input:focus, .ldk-modal .fg select:focus { outline: 2px solid var(--ldk-teal); outline-offset: 1px; border-color: var(--ldk-teal); }
+.ldk-modal .upload-box { border: 2px dashed var(--ldk-line); border-radius: var(--ldk-radius); padding: 14px 16px; background: #FBFDFC; }
+.ldk-modal .file-input-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.ldk-modal .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.ldk-modal .ldk-hint { margin-top: 12px; font-size: 12px; background: var(--ldk-teal-soft); border-radius: 8px; padding: 10px 12px; color: var(--ldk-teal-dark); }
+
+/* Buttons inside modal use the same .ldk-btn scheme */
+.ldk-modal .ldk-btn { border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 12.5px; padding: 9px 18px; cursor: pointer; }
+.ldk-modal .ldk-btn.primary { background: var(--ldk-teal); color: #fff; }
+.ldk-modal .ldk-btn.primary:hover { background: var(--ldk-teal-dark); }
+.ldk-modal .ldk-btn.ghost { background: transparent; border: 1px solid var(--ldk-line); color: var(--ldk-green); }
+.ldk-modal .ldk-btn.ghost:hover { border-color: var(--ldk-teal); color: var(--ldk-teal-dark); }
+
+/* Progress bar in register */
+.ldk .pbar { height: 6px; background: #EAEFEC; border-radius: 4px; overflow: hidden; min-width: 80px; margin-top: 4px; }
+.ldk .pbar span { display: block; height: 100%; background: var(--ldk-teal); }
+.ldk .pbar.warn span { background: var(--ldk-gold); }
+
+/* TKO / closure checklist rows */
+.ldk .tko-check { font-size: 12px; line-height: 1.9; }
+.ldk .tko-check .done { color: var(--ldk-ok); cursor: pointer; }
+.ldk .tko-check .pend { color: var(--ldk-red); font-weight: 700; cursor: pointer; }
+
+/* Empty state */
+.ldk .ldk-empty { padding: 34px; text-align: center; color: var(--ldk-muted); font-size: 13px; }
+
+/* Property cards specifics */
+.ldk .prop-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 12px; }
+.ldk .prop-facs { border-top: 1px solid var(--ldk-line); margin-top: 6px; padding-top: 10px; font-size: 12px; }
+
+@media (max-width: 760px) {
+  .ldk .ldk-pghd h1 { font-size: 24px; letter-spacing: 1.2px; }
+  .ldk-modal .form-grid { grid-template-columns: 1fr; }
+}

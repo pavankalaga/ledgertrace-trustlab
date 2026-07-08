@@ -32,6 +32,7 @@ const Settings = ({ onShowToast }) => {
   useEffect(() => {
     fetchUsers();
     getCompany().then(data => { if (data && data.name) setCompany(data); }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setP = (field) => (e) => setProfile({ ...profile, [field]: e.target.value });

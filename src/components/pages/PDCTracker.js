@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  getPdcDashboard, getPdcs, createPdc, updatePdc, deletePdc, changePdcStatus,
+  getPdcDashboard, getPdcs, createPdc, deletePdc, changePdcStatus,
   getBankAccounts, createBankAccount, deleteBankAccount,
   getParties, createParty, deleteParty,
   getBranches, createBranch, deleteBranch,
