@@ -186,109 +186,12 @@ export const stageClass = (st) =>
     : (st.startsWith('Renewal') || st === 'Takeover' || st === 'Closure') ? 's-evt'
     : '';
 
-// ─── Seed data ───────────────────────────────────────────────────────────
-const initialLoans = [
-  {
-    id: 'BL-001', lender: 'HDFC Bank', branch: 'Begumpet, Hyderabad',
-    type: 'Term Loan', ref: 'HDFC/HYD/TL/2023/4471', sancDate: '2023-08-14',
-    sanctioned: 25000000, disbursed: 25000000,
-    basis: 'EBLR', spread: 2.35, roi: 9.85, tenure: 84, emiStart: '2023-10-05',
-    renewal: null, status: 'Live',
-    purpose: 'Branch expansion — fit-out and lab commissioning, 4 new branches',
-    security: 'First charge on movable fixed assets of the borrower',
-    collateral: 'Equitable mortgage — commercial property, Prakash Nagar, Begumpet',
-    guarantee: 'Venkata Cherukuri (CMD)',
-    chargeId: '100882374410', chargeFiled: '2023-09-02', chargeStatus: 'Registered',
-    covenants: 'FACR ≥ 1.25; audited financials within 180 days of FY close',
-    paidEmis: 33,
-  },
-  {
-    id: 'BL-002', lender: 'State Bank of India', branch: 'SME Branch, Somajiguda',
-    type: 'Cash Credit / OD', ref: 'SBI/SME/CC/2024/0912', sancDate: '2024-03-22',
-    sanctioned: 15000000, disbursed: 9800000,
-    basis: 'EBLR', spread: 2.75, roi: 10.10, tenure: 0, emiStart: null,
-    renewal: '2026-08-31', status: 'Live',
-    purpose: 'Working capital — reagents, consumables and receivables cycle',
-    security: 'Hypothecation of stocks and book debts (pari passu)',
-    collateral: 'Extension of EM over Begumpet property',
-    guarantee: 'Venkata Cherukuri (CMD)',
-    chargeId: '100901255832', chargeFiled: '2024-04-08', chargeStatus: 'Registered',
-    covenants: 'Monthly stock & book-debt statement by 10th; DP against 75% of debtors < 90 days; QIS quarterly',
-    paidEmis: 0,
-  },
-  {
-    id: 'BL-003', lender: 'Siemens Financial Services', branch: 'Mumbai (pan-India)',
-    type: 'Equipment Finance', ref: 'SFS/EF/2024/18220', sancDate: '2024-11-05',
-    sanctioned: 18500000, disbursed: 18500000,
-    basis: 'Fixed', spread: 0, roi: 11.25, tenure: 60, emiStart: '2025-01-05',
-    renewal: null, status: 'Live',
-    purpose: 'Atellica CH/IM analysers and pre-analytics automation — HQ hub lab',
-    security: 'Hypothecation of financed equipment (lien tagged in TAMS)',
-    collateral: 'None',
-    guarantee: 'Corporate guarantee — TDPL board resolution 2024/11/BR-06',
-    chargeId: '100956118204', chargeFiled: '2024-11-28', chargeStatus: 'Registered',
-    covenants: 'Comprehensive insurance on financed assets, SFS as loss payee; no disposal without NOC',
-    paidEmis: 18,
-  },
-  {
-    id: 'BL-004', lender: 'ICICI Bank', branch: 'Panjagutta, Hyderabad',
-    type: 'Vehicle Loan', ref: 'ICICI/VL/2025/77031', sancDate: '2025-02-18',
-    sanctioned: 2400000, disbursed: 2400000,
-    basis: 'Fixed', spread: 0, roi: 9.40, tenure: 48, emiStart: '2025-04-05',
-    renewal: null, status: 'Live',
-    purpose: 'Two logistics vans — specimen transport, Hyderabad cluster',
-    security: 'Hypothecation of vehicles (noted on RC)',
-    collateral: 'None', guarantee: 'None',
-    chargeId: '', chargeFiled: null, chargeStatus: 'Not required',
-    covenants: 'Comprehensive motor insurance with bank hypothecation endorsement',
-    paidEmis: 15,
-  },
-  {
-    id: 'BL-005', lender: 'Axis Bank', branch: 'Banjara Hills, Hyderabad',
-    type: 'Term Loan', ref: 'AXIS/TL/2021/3308', sancDate: '2021-06-10',
-    sanctioned: 8000000, disbursed: 8000000,
-    basis: 'MCLR', spread: 1.90, roi: 9.35, tenure: 48, emiStart: '2021-08-05',
-    renewal: null, status: 'Closed',
-    purpose: 'Initial lab equipment — HQ, fully repaid June 2025',
-    security: 'Hypothecation of equipment', collateral: 'None',
-    guarantee: 'Venkata Cherukuri (CMD)',
-    chargeId: '100774209561', chargeFiled: '2021-07-01', chargeStatus: 'Satisfied (CHG-4 filed)',
-    covenants: '—', paidEmis: 48,
-  },
-];
-
-const initialProperties = [
-  {
-    id: 'PR-001',
-    desc: 'Commercial building, #31 Street No. 5, Prakash Nagar, Begumpet, Hyderabad 500016',
-    owner: 'TrustLab Diagnostics Private Limited', propType: 'Commercial',
-    deed: 'Doc No. 4821/2019, SRO Begumpet', survey: 'Sy. No. 112/2, Plot 31',
-    extent: '480 sq. yds (G+2)',
-    emType: 'Equitable Mortgage (deposit of title deeds)', emDate: '2023-08-28',
-    sro: 'SRO Begumpet, Ranga Reddy',
-    value: 62000000, valDate: '2023-07-20', valuer: 'M/s K. Rao & Associates (bank-empanelled)',
-    facilities: ['BL-001', 'BL-002'],
-    insPolicy: 'NIA/FIRE/2025/887431 (New India Assurance)', insExpiry: '2026-08-19',
-    deedsHeldBy: 'HDFC Bank, Begumpet (first charge); pari passu extension to SBI',
-  },
-  {
-    id: 'PR-002',
-    desc: 'Residential flat 502, Sri Sai Heights, Nizampet Hi-Tension Lane, Hyderabad',
-    owner: 'Venkata Cherukuri (personal asset offered as collateral)', propType: 'Residential',
-    deed: 'Doc No. 2210/2016, SRO Kukatpally', survey: 'Plot 18, Flat 502', extent: '1,850 sq. ft',
-    emType: 'Equitable Mortgage (deposit of title deeds)', emDate: '2024-04-02',
-    sro: 'SRO Kukatpally, Medchal',
-    value: 14500000, valDate: '2024-03-15', valuer: 'M/s Sharma Valuers Pvt Ltd',
-    facilities: ['BL-002'],
-    insPolicy: 'HDFC ERGO/HOME/2025/50211', insExpiry: '2026-07-30',
-    deedsHeldBy: 'State Bank of India, SME Branch Somajiguda',
-  },
-];
-
 // ─── Store ───────────────────────────────────────────────────────────────
+// Everything starts empty — populated only through user actions in the UI
+// (Add facility, Add property, Upload document, Record payment, etc.).
 let state = {
-  LOANS: initialLoans,
-  PROPERTIES: initialProperties,
+  LOANS: [],
+  PROPERTIES: [],
   MANUAL_PAYMENTS: [],
   DOC_SEQ: 1,
 };
@@ -300,30 +203,6 @@ export const subscribe = (fn) => {
   return () => listeners.delete(fn);
 };
 export const getState = () => state;
-
-// Seed a few document metadata entries once so the Documents page isn't empty.
-(function seedDocs() {
-  const seed = [
-    ['BL-001', 'Application', 'Loan application & project report — branch expansion', '2023-07-02'],
-    ['BL-001', 'KYC & Financials (Supporting)', 'CMA data FY21–23, audited financials, KYC set', '2023-07-02'],
-    ['BL-001', 'Sanction / Approval', 'Sanction letter HDFC/HYD/TL/2023/4471 with annexures', '2023-08-14'],
-    ['BL-001', 'Security & Charge', 'EM creation memo + CHG-1 acknowledgement', '2023-09-02'],
-    ['BL-002', 'Sanction / Approval', 'CC sanction letter SBI/SME/CC/2024/0912', '2024-03-22'],
-    ['BL-002', 'Servicing', 'Latest monthly stock & book-debt statement', '2026-06-10'],
-    ['BL-003', 'Sanction / Approval', 'Equipment finance agreement SFS/EF/2024/18220', '2024-11-05'],
-    ['BL-005', 'Closure', 'NOC & CHG-4 filing receipt — facility fully repaid', '2025-07-04'],
-  ];
-  seed.forEach(([fac, stage, note, date]) => {
-    const l = state.LOANS.find((x) => x.id === fac);
-    if (!l) return;
-    l.docs = l.docs || [];
-    l.docs.push({
-      id: 'DOC-' + String(state.DOC_SEQ++).padStart(4, '0'),
-      name: note.slice(0, 40).replace(/[^A-Za-z0-9]+/g, '-') + '.pdf',
-      note, stage, date, size: null, dataUrl: null, placeholder: true,
-    });
-  });
-})();
 
 // Hook — subscribes the component and returns fresh state on every mutation.
 export function useLoanStore() {
