@@ -7,7 +7,7 @@ import {
   emiCalc, schedule, fmtLakh, fmtINR, fmtDate,
   FACILITY_TYPES, RATE_BASES, DOC_STAGES,
 } from '../../../loanStore';
-import { useBankStore, bankLabel } from '../../../bankStore';
+import { useBankStore, bankLabel, bankId } from '../../../bankStore';
 import LoanModal from './LoanModal';
 import './loans.css';
 
@@ -34,14 +34,14 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
   // entry, so editing a facility that was set via free-text still shows
   // the picker as "(custom)". Selecting a bank overwrites lender+branch.
   const matchedBank = BANKS.find((b) => b.name === form.lender && (b.branchCode || '') === (form.branch || ''));
-  const [selectedBankId, setSelectedBankId] = useState(matchedBank ? matchedBank.id : '');
+  const [selectedBankId, setSelectedBankId] = useState(matchedBank ? bankId(matchedBank) : '');
 
   React.useEffect(() => {
     if (isOpen) {
       const next = initial ? { ...initial } : { ...emptyLoan };
       setForm(next);
       const m = BANKS.find((b) => b.name === next.lender && (b.branchCode || '') === (next.branch || ''));
-      setSelectedBankId(m ? m.id : '');
+      setSelectedBankId(m ? bankId(m) : '');
       setFilesStage('Sanction / Approval');
       setFiles(null);
     }
@@ -50,7 +50,7 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const pickBank = (id) => {
     setSelectedBankId(id);
-    const b = BANKS.find((x) => x.id === id);
+    const b = BANKS.find((x) => bankId(x) === id);
     if (b) setForm((f) => ({ ...f, lender: b.name, branch: b.branchCode || '' }));
   };
 
@@ -97,7 +97,10 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
           ) : (
             <select value={selectedBankId} onChange={(e) => pickBank(e.target.value)}>
               <option value="">Select a bank…</option>
-              {BANKS.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
+              {BANKS.map((b) => {
+                const id = bankId(b);
+                return <option key={id} value={id}>{bankLabel(b)}</option>;
+              })}
             </select>
           )}
         </div>

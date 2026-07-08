@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getUsers, createUser, updateUser, getCompany, updateCompany, syncGRN } from '../../api';
-import { useBankStore, addBank, updateBank, deleteBank } from '../../bankStore';
+import { useBankStore, addBank, updateBank, deleteBank, bankId } from '../../bankStore';
 
 const Toggle = ({ defaultOn = false }) => {
   const [on, setOn] = useState(defaultOn);
@@ -12,18 +12,19 @@ const Toggle = ({ defaultOn = false }) => {
    BANK CONFIG panel — its own component so state is scoped locally.
    ═════════════════════════════════════════════════════════════════════ */
 const BankConfigPanel = ({ onShowToast }) => {
-  const { BANKS } = useBankStore();
+  const { BANKS, loading, error } = useBankStore();
   const emptyBank = { name: '', branchCode: '', contacts: [{ name: '', phone: '', info: '' }] };
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyBank);
+  const [saving, setSaving] = useState(false);
 
   const startNew = () => { setEditingId(null); setForm({ ...emptyBank, contacts: [{ name: '', phone: '', info: '' }] }); };
   const startEdit = (b) => {
-    setEditingId(b.id);
+    setEditingId(bankId(b));
     setForm({
-      name: b.name,
-      branchCode: b.branchCode,
-      contacts: b.contacts.length ? b.contacts.map((c) => ({ ...c })) : [{ name: '', phone: '', info: '' }],
+      name: b.name || '',
+      branchCode: b.branchCode || '',
+      contacts: (b.contacts && b.contacts.length) ? b.contacts.map((c) => ({ ...c })) : [{ name: '', phone: '', info: '' }],
     });
   };
 
@@ -40,26 +41,37 @@ const BankConfigPanel = ({ onShowToast }) => {
     setForm({ ...form, contacts: contacts.length ? contacts : [{ name: '', phone: '', info: '' }] });
   };
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) {
       onShowToast && onShowToast('Bank name is required');
       return;
     }
-    if (editingId) {
-      updateBank(editingId, form);
-      onShowToast && onShowToast('✓ Bank updated');
-    } else {
-      addBank(form);
-      onShowToast && onShowToast('✓ Bank added');
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateBank(editingId, form);
+        onShowToast && onShowToast('✓ Bank updated');
+      } else {
+        await addBank(form);
+        onShowToast && onShowToast('✓ Bank added');
+      }
+      startNew();
+    } catch (err) {
+      onShowToast && onShowToast('Error: ' + (err.message || 'Failed to save bank'));
+    } finally {
+      setSaving(false);
     }
-    startNew();
   };
 
-  const remove = (id) => {
+  const remove = async (id) => {
     if (!window.confirm('Remove this bank from the config?')) return;
-    deleteBank(id);
-    if (editingId === id) startNew();
-    onShowToast && onShowToast('Bank removed');
+    try {
+      await deleteBank(id);
+      if (editingId === id) startNew();
+      onShowToast && onShowToast('Bank removed');
+    } catch (err) {
+      onShowToast && onShowToast('Error: ' + (err.message || 'Failed to delete bank'));
+    }
   };
 
   return (
@@ -102,14 +114,21 @@ const BankConfigPanel = ({ onShowToast }) => {
         ))}
 
         <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          {editingId && <button className="btn btn-ghost" onClick={startNew}>Cancel</button>}
-          <button className="btn btn-primary" onClick={save}>{editingId ? 'Save changes' : 'Add bank'}</button>
+          {editingId && <button className="btn btn-ghost" onClick={startNew} disabled={saving}>Cancel</button>}
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add bank'}</button>
         </div>
       </div>
 
       <div className="ss-hd" style={{ marginTop: 24 }}>Configured Banks</div>
       <div className="ss-body">
-        {BANKS.length === 0 ? (
+        {error && (
+          <div style={{ marginBottom: 12, padding: 12, background: '#fef2f2', borderRadius: 8, fontSize: 12.5, color: 'var(--coral)' }}>
+            Error loading banks: {error}
+          </div>
+        )}
+        {loading ? (
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink4)', fontSize: 13 }}>Loading banks…</div>
+        ) : BANKS.length === 0 ? (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink4)', fontSize: 13 }}>No banks configured yet.</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -122,23 +141,27 @@ const BankConfigPanel = ({ onShowToast }) => {
               </tr>
             </thead>
             <tbody>
-              {BANKS.map((b) => (
-                <tr key={b.id}>
-                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', fontWeight: 600 }}>{b.name}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>{b.branchCode || '—'}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>
-                    {b.contacts.length === 0 ? <span style={{ color: 'var(--ink4)' }}>—</span> : b.contacts.map((c) => (
-                      <div key={c.id} style={{ marginBottom: 2 }}>
-                        <b>{c.name || '(no name)'}</b>{c.phone ? ` · ${c.phone}` : ''}{c.info ? ` · ${c.info}` : ''}
-                      </div>
-                    ))}
-                  </td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5 }} onClick={() => startEdit(b)}>Edit</button>{' '}
-                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5, color: 'var(--coral)' }} onClick={() => remove(b.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {BANKS.map((b) => {
+                const id = bankId(b);
+                const contacts = b.contacts || [];
+                return (
+                  <tr key={id}>
+                    <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', fontWeight: 600 }}>{b.name}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>{b.branchCode || '—'}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>
+                      {contacts.length === 0 ? <span style={{ color: 'var(--ink4)' }}>—</span> : contacts.map((c, i) => (
+                        <div key={c._id || c.id || i} style={{ marginBottom: 2 }}>
+                          <b>{c.name || '(no name)'}</b>{c.phone ? ` · ${c.phone}` : ''}{c.info ? ` · ${c.info}` : ''}
+                        </div>
+                      ))}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5 }} onClick={() => startEdit(b)}>Edit</button>{' '}
+                      <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5, color: 'var(--coral)' }} onClick={() => remove(id)}>Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -99,6 +99,12 @@ export const updateCompany = (data) => mutateApi('/company', 'PUT', data);
 // GRN SYNC
 export const syncGRN = (fromDate, toDate) => mutateApi('/grn/sync', 'POST', { fromDate, toDate });
 
+// BANKS (Settings → Bank Config, used by Loan Management)
+export const getBanks   = () => fetchApi('/banks');
+export const createBank = (data)     => mutateApi('/banks',     'POST',   data);
+export const updateBankApi = (id, d) => mutateApi(`/banks/${id}`, 'PUT',    d);
+export const deleteBankApi = (id)    => mutateApi(`/banks/${id}`, 'DELETE');
+
 // ── FIXED PAYMENTS ────────────────────────────────────────────────────
 export const getFixedForecasts = (params = {}) => {
   const qs = new URLSearchParams(params).toString();

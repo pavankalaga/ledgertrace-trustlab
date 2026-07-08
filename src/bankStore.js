@@ -1,18 +1,26 @@
 /**
- * Bank config — shared list of banks used by the Loan Management module.
- * Each bank has a name + branch code and any number of contact people
- * (name, phone, additional info). Populated only through the Settings →
- * Bank Config UI; starts empty.
+ * Bank config — backed by MongoDB via /api/banks. Provides a small
+ * store-plus-hook so any component that calls `useBankStore()` re-renders
+ * whenever any mutation succeeds.
  *
- * Same subscribe/emit pattern as loanStore so components stay in sync
- * after any mutation.
+ * Contract:
+ *   useBankStore() → { BANKS, loading, error, refresh }
+ *   addBank(obj)      -> Promise resolving to the created doc
+ *   updateBank(id, p) -> Promise resolving to the updated doc
+ *   deleteBank(id)    -> Promise resolving when the row is gone
+ *
+ * On first call the module lazily kicks off a fetch. Every mutation
+ * updates the in-memory cache immediately (optimistic-ish) AND persists
+ * via the API; on API failure the cache is reconciled from a refresh.
  */
 import { useEffect, useState } from 'react';
+import { getBanks, createBank, updateBankApi, deleteBankApi } from './api';
 
 let state = {
-  BANKS: [], // { id, name, branchCode, contacts: [{ id, name, phone, info }] }
-  BANK_SEQ: 1,
-  CONTACT_SEQ: 1,
+  BANKS: [],
+  loading: false,
+  loaded: false,
+  error: null,
 };
 
 const listeners = new Set();
@@ -22,53 +30,74 @@ export const subscribe = (fn) => {
   return () => listeners.delete(fn);
 };
 
+/** Kick off a fresh fetch. Safe to call any time. */
+export async function refreshBanks() {
+  state.loading = true;
+  state.error = null;
+  emit();
+  try {
+    const data = await getBanks();
+    state.BANKS = Array.isArray(data) ? data : [];
+    state.loaded = true;
+  } catch (err) {
+    state.error = err && err.message ? err.message : 'Failed to load banks';
+  } finally {
+    state.loading = false;
+    emit();
+  }
+}
+
+/** React hook — subscribes and auto-loads the list on first mount. */
 export function useBankStore() {
   const [, setV] = useState(0);
-  useEffect(() => subscribe(() => setV((v) => v + 1)), []);
+  useEffect(() => {
+    const unsub = subscribe(() => setV((v) => v + 1));
+    if (!state.loaded && !state.loading) refreshBanks();
+    return unsub;
+  }, []);
   return state;
 }
 
-const nextBankId = () => 'BNK-' + String(state.BANK_SEQ++).padStart(3, '0');
-const nextContactId = () => 'BCN-' + String(state.CONTACT_SEQ++).padStart(4, '0');
-
-/**
- * Normalise a raw contacts array coming from the form. Strips completely
- * empty rows so a "Save" with a stray blank sub-row still succeeds.
- */
-function normaliseContacts(contacts) {
+/** Convert a form's raw contact rows into what the API expects. */
+function cleanContacts(contacts) {
   return (contacts || [])
-    .filter((c) => (c.name || '').trim() || (c.phone || '').trim() || (c.info || '').trim())
     .map((c) => ({
-      id: c.id || nextContactId(),
-      name: (c.name || '').trim(),
+      name:  (c.name  || '').trim(),
       phone: (c.phone || '').trim(),
-      info: (c.info || '').trim(),
-    }));
+      info:  (c.info  || '').trim(),
+    }))
+    .filter((c) => c.name || c.phone || c.info);
 }
 
-export function addBank(obj) {
-  const created = {
-    id: nextBankId(),
-    name: (obj.name || '').trim(),
+export async function addBank(obj) {
+  const payload = {
+    name:       (obj.name || '').trim(),
     branchCode: (obj.branchCode || '').trim(),
-    contacts: normaliseContacts(obj.contacts),
+    contacts:   cleanContacts(obj.contacts),
   };
-  state.BANKS.push(created);
+  const created = await createBank(payload);
+  state.BANKS = [...state.BANKS, created].sort((a, b) => {
+    const s = (a.name || '').localeCompare(b.name || '');
+    return s !== 0 ? s : (a.branchCode || '').localeCompare(b.branchCode || '');
+  });
   emit();
   return created;
 }
 
-export function updateBank(id, patch) {
-  const b = state.BANKS.find((x) => x.id === id);
-  if (!b) return;
-  if (patch.name !== undefined) b.name = (patch.name || '').trim();
-  if (patch.branchCode !== undefined) b.branchCode = (patch.branchCode || '').trim();
-  if (patch.contacts !== undefined) b.contacts = normaliseContacts(patch.contacts);
+export async function updateBank(id, patch) {
+  const payload = {};
+  if (patch.name       !== undefined) payload.name       = String(patch.name).trim();
+  if (patch.branchCode !== undefined) payload.branchCode = String(patch.branchCode).trim();
+  if (patch.contacts   !== undefined) payload.contacts   = cleanContacts(patch.contacts);
+  const updated = await updateBankApi(id, payload);
+  state.BANKS = state.BANKS.map((b) => (b._id === id || b.id === id) ? updated : b);
   emit();
+  return updated;
 }
 
-export function deleteBank(id) {
-  state.BANKS = state.BANKS.filter((b) => b.id !== id);
+export async function deleteBank(id) {
+  await deleteBankApi(id);
+  state.BANKS = state.BANKS.filter((b) => (b._id !== id && b.id !== id));
   emit();
 }
 
@@ -76,3 +105,6 @@ export function deleteBank(id) {
 export const bankLabel = (b) => b
   ? `${b.name}${b.branchCode ? ` — ${b.branchCode}` : ''}`
   : '';
+
+/** Stable id lookup — Mongoose returns `_id`, but existing code may use `id`. */
+export const bankId = (b) => (b && (b._id || b.id)) || '';
