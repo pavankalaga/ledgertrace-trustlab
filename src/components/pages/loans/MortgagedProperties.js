@@ -60,7 +60,7 @@ const PropertyModal = ({ isOpen, onClose, editingId }) => {
         </div>
         <div className="fg"><label>Title Deed / Document No.</label><input type="text" value={form.deed} onChange={set('deed')} /></div>
         <div className="fg"><label>Survey / Plot No.</label><input type="text" value={form.survey} onChange={set('survey')} /></div>
-        <div className="fg"><label>Extent</label><input type="text" value={form.extent} onChange={set('extent')} placeholder="e.g. 420 sq. yds" /></div>
+        <div className="fg"><label>Extent</label><input type="text" value={form.extent} onChange={set('extent')} /></div>
         <div className="fg"><label>Mortgage Type</label>
           <select value={form.emType} onChange={set('emType')}>
             <option>Equitable Mortgage (deposit of title deeds)</option>
@@ -72,7 +72,7 @@ const PropertyModal = ({ isOpen, onClose, editingId }) => {
         <div className="fg"><label>Market Value (₹)</label><input type="number" min="0" value={form.value} onChange={set('value')} /></div>
         <div className="fg"><label>Valuation Date</label><input type="date" value={form.valDate || ''} onChange={set('valDate')} /></div>
         <div className="fg full"><label>Valuer</label><input type="text" value={form.valuer} onChange={set('valuer')} /></div>
-        <div className="fg full"><label>Facilities Secured (comma-separated IDs)</label><input type="text" value={form.facilities} onChange={set('facilities')} placeholder="e.g. BL-001, BL-002" /></div>
+        <div className="fg full"><label>Facilities Secured (comma-separated IDs)</label><input type="text" value={form.facilities} onChange={set('facilities')} /></div>
         <div className="fg"><label>Insurance Policy No.</label><input type="text" value={form.insPolicy} onChange={set('insPolicy')} /></div>
         <div className="fg"><label>Insurance Expiry</label><input type="date" value={form.insExpiry || ''} onChange={set('insExpiry')} /></div>
       </div>

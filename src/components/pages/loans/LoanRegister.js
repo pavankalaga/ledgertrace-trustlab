@@ -69,8 +69,8 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
     <LoanModal isOpen={isOpen} onClose={onClose}>
       <h3>{editingId ? `Edit Facility ${editingId}` : 'Add Facility'}</h3>
       <div className="form-grid">
-        <div className="fg"><label>Lender</label><input type="text" value={form.lender} onChange={set('lender')} placeholder="e.g. HDFC Bank" /></div>
-        <div className="fg"><label>Branch</label><input type="text" value={form.branch} onChange={set('branch')} placeholder="e.g. Begumpet, Hyderabad" /></div>
+        <div className="fg"><label>Lender</label><input type="text" value={form.lender} onChange={set('lender')} /></div>
+        <div className="fg"><label>Branch</label><input type="text" value={form.branch} onChange={set('branch')} /></div>
         <div className="fg"><label>Facility Type</label>
           <select value={form.type} onChange={set('type')}>
             {FACILITY_TYPES.map((t) => <option key={t}>{t}</option>)}
@@ -312,7 +312,7 @@ const ClosureModal = ({ isOpen, onClose }) => {
             <option>RTGS</option><option>NEFT</option><option>Cheque</option><option>Internal transfer</option>
           </select>
         </div>
-        <div className="fg full"><label>Source of Funds</label><input type="text" value={form.source} onChange={set('source')} placeholder="e.g. Internal accruals" /></div>
+        <div className="fg full"><label>Source of Funds</label><input type="text" value={form.source} onChange={set('source')} /></div>
         <div className="fg full"><label>Bank Reference</label><input type="text" value={form.ref} onChange={set('ref')} /></div>
         <div className="fg full upload-box">
           <label>Attach Documents — foreclosure statement, NOC, CHG-4 receipt…</label>

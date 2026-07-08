@@ -75,8 +75,7 @@ const LoanDocuments = () => {
           </div>
           <div className="fg" style={{ gridColumn: '1 / -1' }}>
             <label>Note (optional)</label>
-            <input type="text" value={dcNote} onChange={(e) => setDcNote(e.target.value)}
-              placeholder='e.g. "CMA data FY24–26", "Sanction letter with annexures"' />
+            <input type="text" value={dcNote} onChange={(e) => setDcNote(e.target.value)} />
           </div>
           <div className="fg" style={{ gridColumn: '1 / -1', border: '2px dashed var(--ldk-line)', borderRadius: 'var(--ldk-radius)', padding: '14px 16px', background: '#FBFDFC' }}>
             <label>Files — multiple allowed (PDF, images, spreadsheets…)</label>

@@ -170,7 +170,7 @@ const PrepaymentModal = ({ isOpen, onClose, defaultLoanId }) => {
           </select>
         </div>
         <div className="fg"><label>Part-Prepayment Charges (₹)</label><input type="number" min="0" value={form.charges} onChange={set('charges')} /></div>
-        <div className="fg"><label>Mode / Bank Ref</label><input type="text" value={form.ref} onChange={set('ref')} placeholder="RTGS ref" /></div>
+        <div className="fg"><label>Mode / Bank Ref</label><input type="text" value={form.ref} onChange={set('ref')} /></div>
         <div className="fg full upload-box">
           <label>Attach Documents — prepayment request, bank acknowledgement…</label>
           <div className="file-input-row"><input type="file" multiple onChange={(e) => setFiles(e.target.files)} /></div>
@@ -200,21 +200,12 @@ const LoanAmortisation = () => {
   }, [paramLoan]); // eslint-disable-line
 
   const l = LOANS.find((x) => x.id === loanId);
-  if (!l) {
-    return (
-      <div className="ldk">
-        <div className="ldk-pghd">
-          <div><h1>Amortisation</h1></div>
-        </div>
-        <div className="ldk-card ldk-empty">No facility selected.</div>
-      </div>
-    );
-  }
-
-  const out = outstanding(l);
-  const succLoan = l.takenOverBy ? LOANS.find((x) => x.id === l.takenOverBy) : null;
+  const out = l ? outstanding(l) : 0;
+  const succLoan = l && l.takenOverBy ? LOANS.find((x) => x.id === l.takenOverBy) : null;
 
   const changeLoan = (id) => { setLoanId(id); setParams({ loan: id }); };
+  const hasLive = LOANS.some((x) => x.status === 'Live');
+  const hasLiveTerm = LOANS.some((x) => x.status === 'Live' && x.tenure);
 
   return (
     <div className="ldk">
@@ -222,24 +213,54 @@ const LoanAmortisation = () => {
         <div><h1>Amortisation</h1></div>
       </div>
 
+      {/* Toolbar is always visible — buttons stay reachable even when no
+          facility is selected yet, so the user can jump straight into
+          Record repayment / Lumpsum prepayment from an empty state. */}
       <div className="toolbar">
         <div className="filters">
-          <select value={loanId} onChange={(e) => changeLoan(e.target.value)} style={{ minWidth: 320 }}>
-            {LOANS.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.id} — {x.lender} · {x.type} · {fmtLakh(x.sanctioned)}
-              </option>
-            ))}
-          </select>
+          {LOANS.length === 0 ? (
+            <select disabled style={{ minWidth: 320 }}>
+              <option>No facilities — add one from Loan Register</option>
+            </select>
+          ) : (
+            <select value={loanId || ''} onChange={(e) => changeLoan(e.target.value)} style={{ minWidth: 320 }}>
+              {!loanId && <option value="">Select a facility…</option>}
+              {LOANS.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.id} — {x.lender} · {x.type} · {fmtLakh(x.sanctioned)}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="ldk-btn ghost" onClick={() => setModal('prep')}>Lumpsum prepayment</button>
-          <button className="ldk-btn primary" onClick={() => setModal('pay')}>Record repayment</button>
+          <button
+            className="ldk-btn ghost"
+            disabled={!hasLiveTerm}
+            title={hasLiveTerm ? undefined : 'Add a live term facility first'}
+            onClick={() => setModal('prep')}>
+            Lumpsum prepayment
+          </button>
+          <button
+            className="ldk-btn primary"
+            disabled={!hasLive}
+            title={hasLive ? undefined : 'Add a live facility first'}
+            onClick={() => setModal('pay')}>
+            Record repayment
+          </button>
         </div>
       </div>
 
+      {!l && (
+        <div className="ldk-card ldk-empty">
+          {LOANS.length === 0
+            ? 'No facilities yet — add one from Loan Register to see its schedule here.'
+            : 'Select a facility from the dropdown above.'}
+        </div>
+      )}
+
       {/* Header card */}
-      <div className="ldk-card">
+      {l && (<div className="ldk-card">
         <div className="detail-grid">
           <div className="dfield"><div className="k">Lender</div><div className="v">{l.lender} — {l.branch}</div></div>
           <div className="dfield"><div className="k">Sanction Ref</div><div className="v ldk-mono">{l.ref}</div></div>
@@ -254,10 +275,10 @@ const LoanAmortisation = () => {
           )}
           <div className="dfield"><div className="k">Security</div><div className="v">{l.security}</div></div>
         </div>
-      </div>
+      </div>)}
 
       {/* Takeover panel */}
-      {l.status === 'Taken Over' && (
+      {l && l.status === 'Taken Over' && (
         <div className="ldk-card" style={{ borderLeft: '4px solid #5A4FCF' }}>
           <b>Taken over on {fmtDate(l.takeoverDate)}</b> by{' '}
           <span className="link-chip" onClick={() => changeLoan(l.takenOverBy)}>
@@ -281,7 +302,7 @@ const LoanAmortisation = () => {
       )}
 
       {/* Early closure panel */}
-      {l.closureType === 'Early closure' && (
+      {l && l.closureType === 'Early closure' && (
         <div className="ldk-card" style={{ borderLeft: '4px solid var(--ldk-gold)' }}>
           <b>Closed early on {fmtDate(l.closureDate)}</b><br />
           <span style={{ fontSize: 12, color: 'var(--ldk-muted)' }}>
@@ -303,7 +324,7 @@ const LoanAmortisation = () => {
       )}
 
       {/* Takeover-of link */}
-      {l.takeoverOf && (
+      {l && l.takeoverOf && (
         <div className="ldk-card" style={{ borderLeft: '4px solid var(--ldk-teal)' }}>
           <b>Takeover facility</b> — replaces{' '}
           <span className="link-chip" onClick={() => changeLoan(l.takeoverOf)}>{l.takeoverOf}</span>.
@@ -312,7 +333,7 @@ const LoanAmortisation = () => {
       )}
 
       {/* Renewal history */}
-      {(l.renewals || []).length > 0 && (
+      {l && (l.renewals || []).length > 0 && (
         <div className="ldk-card" style={{ borderLeft: '4px solid var(--ldk-gold)' }}>
           <b style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.6px', color: 'var(--ldk-muted)' }}>Renewal &amp; restructure history</b>
           <table style={{ marginTop: 8 }}>
@@ -332,16 +353,15 @@ const LoanAmortisation = () => {
       )}
 
       {/* Dropline OD steps */}
-      {l.type === 'Dropline OD' && l.dropline && l.status === 'Live' && (
+      {l && l.type === 'Dropline OD' && l.dropline && l.status === 'Live' && (
         <DroplineView l={l} />
       )}
 
       {/* CC/OD notice */}
-      {!l.tenure && l.type !== 'Dropline OD' && (
+      {l && !l.tenure && l.type !== 'Dropline OD' && (
         <div className="ldk-card">
           <b>Running facility — no amortisation schedule.</b><br />
           <span style={{ color: 'var(--ldk-muted)', fontSize: 12.5 }}>
-            Cash credit / overdraft limits are serviced by monthly interest on utilisation and renewed annually.
             Current utilisation {fmtLakh(l.disbursed)} of {fmtLakh(l.sanctioned)} ({l.sanctioned ? ((l.disbursed / l.sanctioned) * 100).toFixed(0) : 0}%).
             Indicative monthly interest at current utilisation: <b className="ldk-mono">{fmtINR(l.disbursed * l.roi / 1200)}</b>.
           </span>
@@ -349,7 +369,7 @@ const LoanAmortisation = () => {
       )}
 
       {/* Term loan schedule */}
-      {l.tenure > 0 && <TermSchedule l={l} />}
+      {l && l.tenure > 0 && <TermSchedule l={l} />}
 
       <PaymentModal isOpen={modal === 'pay'} onClose={() => setModal(null)} defaultLoanId={loanId} />
       <PrepaymentModal isOpen={modal === 'prep'} onClose={() => setModal(null)} defaultLoanId={loanId} />
