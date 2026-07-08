@@ -33,9 +33,10 @@ const Sidebar = ({ isOpen, onClose, invoices = [], user }) => {
     approvals: { count: approvalCount, hot: approvalCount > 0 },
   };
 
-  const visibleRoutes = isCMD(user)
+  const visibleRoutes = (isCMD(user)
     ? routes
-    : routes.filter(r => r.key !== 'settings');
+    : routes.filter(r => r.key !== 'settings')
+  ).filter(r => !r.hideFromSidebar);
 
   const sections = [];
   let lastSection = null;

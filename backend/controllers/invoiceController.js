@@ -95,19 +95,28 @@ const isDuplicateKey = (err) =>
 
 // Try Invoice.create with fresh IDs, walking past any dup-key collisions. Returns
 // the saved doc, or throws the last non-collision error (e.g. schema validation).
+// Pre-checks Invoice.exists({ id }) each attempt so we skip occupied IDs instead
+// of relying purely on the E11000 retry — this handles stale-max reads too.
 const createWithUniqueId = async (input, seedNum) => {
   let nextNum = seedNum;
   let lastErr = null;
-  for (let attempt = 0; attempt < 25; attempt++) {
+  for (let attempt = 0; attempt < 50; attempt++) {
     const id = formatInvoiceId(nextNum);
+    // Skip forward if this ID already exists (belt & braces on top of the retry).
+    // eslint-disable-next-line no-await-in-loop
+    if (await Invoice.exists({ id })) {
+      nextNum += 1;
+      continue;
+    }
     try {
       const payload = buildInvoicePayload(input, id);
       const saved = await Invoice.create(payload);
+      console.log(`[invoice] created ${id}`);
       return { invoice: saved, nextNum: nextNum + 1 };
     } catch (err) {
       lastErr = err;
       if (isDuplicateKey(err)) {
-        // Advance one and also reconcile with DB max in case another writer sped ahead.
+        console.warn(`[invoice] E11000 on ${id}; advancing`);
         nextNum += 1;
         const dbMax = (await getMaxInvoiceNum()) + 1;
         if (dbMax > nextNum) nextNum = dbMax;

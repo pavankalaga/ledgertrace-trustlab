@@ -15,23 +15,32 @@ import Suppliers from './components/pages/Suppliers';
 import Settings from './components/pages/Settings';
 import MLD from './components/pages/MLD';
 
+// `hideFromSidebar` keeps the route registered (deep links still work) but
+// hides the item from the sidebar navigation.
 const routes = [
+  // ── Overview ─────────────────────────────────────────────────────────
   { path: '/', key: 'dashboard', label: 'Dashboard', section: 'Overview', component: Dashboard, icon: 'dashboard' },
   { path: '/mld', key: 'mld', label: 'MLD', section: 'Overview', component: MLD, icon: 'mld' },
-  { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Overview', component: Invoices, icon: 'invoices' },
-  { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Workflow', component: Pending, icon: 'pending' },
-  { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals' },
+
+  // ── Workflow ─────────────────────────────────────────────────────────
+  { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Workflow', component: Invoices, icon: 'invoices' },
   { path: '/payments', key: 'payments', label: 'Payments', section: 'Workflow', component: Payments, icon: 'payments' },
   { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Workflow', component: FixedPayments, icon: 'fixed' },
   { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Workflow', component: AdvancePayments, icon: 'advance' },
   { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Workflow', component: PDCTracker, icon: 'pdc' },
   { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Workflow', component: ChequeTracker, icon: 'cheque' },
-  { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Ledger', component: TransactionsRegister, icon: 'register' },
-  { path: '/supplier-ledger', key: 'supplier-ledger', label: 'Supplier Ledger', section: 'Ledger', component: SupplierLedger, icon: 'ledger' },
-  { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Finance', component: SpendAnalytics, icon: 'analytics' },
-  { path: '/reports', key: 'reports', label: 'Reports', section: 'Finance', component: Reports, icon: 'reports' },
-  { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Finance', component: Suppliers, icon: 'suppliers' },
-  { path: '/settings', key: 'settings', label: 'Settings', section: 'Finance', component: Settings, icon: 'settings' },
+  { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Workflow', component: TransactionsRegister, icon: 'register' },
+  { path: '/supplier-ledger', key: 'supplier-ledger', label: 'Supplier Ledger', section: 'Workflow', component: SupplierLedger, icon: 'ledger' },
+  { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Workflow', component: SpendAnalytics, icon: 'analytics' },
+  { path: '/reports', key: 'reports', label: 'Reports', section: 'Workflow', component: Reports, icon: 'reports' },
+  { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Workflow', component: Suppliers, icon: 'suppliers' },
+
+  // ── System (CMD-only) ────────────────────────────────────────────────
+  { path: '/settings', key: 'settings', label: 'Settings', section: 'System', component: Settings, icon: 'settings' },
+
+  // ── Hidden from sidebar but still routable ───────────────────────────
+  { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Workflow', component: Pending, icon: 'pending', hideFromSidebar: true },
+  { path: '/approvals', key: 'approvals', label: 'Approvals', section: 'Workflow', component: Approvals, icon: 'approvals', hideFromSidebar: true },
 ];
 
 export default routes;
