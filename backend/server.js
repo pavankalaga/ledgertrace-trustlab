@@ -23,6 +23,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'LedgerTrace API is running' });
 });
 
+// Public facility catalogue — external consumers (e.g. TruFin) pull this
+// server-to-server without an auth token so the sync can run headless.
+// The endpoint returns a read-only trimmed shape (no prepayments, docs,
+// checklists etc.) so we don't leak the full loan blob.
+const { listFacilities: publicListFacilities } = require('./controllers/loanController');
+app.get('/api/loans/facilities', publicListFacilities);
+
 // Auth middleware — everything below this requires a valid token
 app.use('/api', auth);
 
