@@ -61,8 +61,17 @@ const routes = [
   { path: '/loans/properties', key: 'loan-properties', label: 'Mortgaged Properties', section: 'Loan Management', component: MortgagedProperties, icon: 'loan-property' },
   { path: '/loans/charges', key: 'loan-charges', label: 'Charges & Compliance', section: 'Loan Management', component: ChargesCompliance, icon: 'loan-charges' },
 
-  // ── System (CMD-only) ────────────────────────────────────────────────
-  { path: '/settings', key: 'settings', label: 'Settings', section: 'System', component: Settings, icon: 'settings' },
+  // ── Settings (CMD-only) ──────────────────────────────────────────────
+  // Every entry mounts the same Settings page; the page reads the URL to
+  // switch between panels, so each sidebar link deep-links into its tab.
+  { path: '/settings/profile',        key: 'settings-profile',       label: 'Profile',        section: 'Settings', component: Settings, icon: 'set-profile' },
+  { path: '/settings/workflow',       key: 'settings-workflow',      label: 'Workflow',       section: 'Settings', component: Settings, icon: 'set-workflow' },
+  { path: '/settings/users',          key: 'settings-users',         label: 'Users & Roles',  section: 'Settings', component: Settings, icon: 'set-users' },
+  { path: '/settings/notifications',  key: 'settings-notifications', label: 'Notifications',  section: 'Settings', component: Settings, icon: 'set-notify' },
+  { path: '/settings/company',        key: 'settings-company',       label: 'Company Info',   section: 'Settings', component: Settings, icon: 'set-company' },
+  { path: '/settings/datasync',       key: 'settings-datasync',      label: 'Data Sync',      section: 'Settings', component: Settings, icon: 'set-sync' },
+  { path: '/settings/bank-config',    key: 'settings-bank-config',   label: 'Bank Config',    section: 'Settings', component: Settings, icon: 'set-bank' },
+  { path: '/settings',                key: 'settings',               label: 'Settings',       section: 'Settings', component: Settings, icon: 'set-profile', hideFromSidebar: true },
 
   // ── Hidden from sidebar but still routable ───────────────────────────
   { path: '/pending', key: 'pending', label: 'Pending Action', section: 'Invoice Management', component: Pending, icon: 'pending', hideFromSidebar: true },

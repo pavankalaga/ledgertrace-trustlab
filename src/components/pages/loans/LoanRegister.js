@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   useLoanStore, addLoan, updateLoan, attachFiles,
   recordRenewal, recordClosure, recordTakeover,
@@ -7,6 +7,7 @@ import {
   emiCalc, schedule, fmtLakh, fmtINR, fmtDate,
   FACILITY_TYPES, RATE_BASES, DOC_STAGES,
 } from '../../../loanStore';
+import { useBankStore, bankLabel } from '../../../bankStore';
 import LoanModal from './LoanModal';
 import './loans.css';
 
@@ -24,24 +25,38 @@ const emptyLoan = {
 
 const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
   const { LOANS } = useLoanStore();
+  const { BANKS } = useBankStore();
   const initial = editingId ? LOANS.find((l) => l.id === editingId) : null;
   const [form, setForm] = useState(() => initial ? { ...initial } : { ...emptyLoan });
   const [filesStage, setFilesStage] = useState('Sanction / Approval');
   const [files, setFiles] = useState(null);
+  // Bank picker — resolved by matching lender+branch back to a Bank Config
+  // entry, so editing a facility that was set via free-text still shows
+  // the picker as "(custom)". Selecting a bank overwrites lender+branch.
+  const matchedBank = BANKS.find((b) => b.name === form.lender && (b.branchCode || '') === (form.branch || ''));
+  const [selectedBankId, setSelectedBankId] = useState(matchedBank ? matchedBank.id : '');
 
   React.useEffect(() => {
     if (isOpen) {
-      setForm(initial ? { ...initial } : { ...emptyLoan });
+      const next = initial ? { ...initial } : { ...emptyLoan };
+      setForm(next);
+      const m = BANKS.find((b) => b.name === next.lender && (b.branchCode || '') === (next.branch || ''));
+      setSelectedBankId(m ? m.id : '');
       setFilesStage('Sanction / Approval');
       setFiles(null);
     }
-  }, [isOpen, initial]);
+  }, [isOpen, initial]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const pickBank = (id) => {
+    setSelectedBankId(id);
+    const b = BANKS.find((x) => x.id === id);
+    if (b) setForm((f) => ({ ...f, lender: b.name, branch: b.branchCode || '' }));
+  };
 
   const save = () => {
     if (!form.lender || !form.sanctioned) {
-      alert('Lender and sanctioned amount are required.');
+      alert('Please pick a bank and enter the sanctioned amount.');
       return;
     }
     const payload = {
@@ -69,8 +84,23 @@ const AddEditLoanModal = ({ isOpen, onClose, editingId }) => {
     <LoanModal isOpen={isOpen} onClose={onClose}>
       <h3>{editingId ? `Edit Facility ${editingId}` : 'Add Facility'}</h3>
       <div className="form-grid">
-        <div className="fg"><label>Lender</label><input type="text" value={form.lender} onChange={set('lender')} /></div>
-        <div className="fg"><label>Branch</label><input type="text" value={form.branch} onChange={set('branch')} /></div>
+        <div className="fg full">
+          <label>Bank &amp; Branch</label>
+          {BANKS.length === 0 ? (
+            <div style={{ padding: '10px 12px', border: '1px dashed var(--ldk-line)', borderRadius: 8, fontSize: 12.5, background: '#FBFDFC', color: 'var(--ldk-muted)' }}>
+              No banks configured yet.&nbsp;
+              <Link to="/settings/bank-config" style={{ color: 'var(--ldk-teal-dark)', fontWeight: 700 }} onClick={onClose}>
+                Add a bank in Settings → Bank Config
+              </Link>
+              &nbsp;then re-open this form.
+            </div>
+          ) : (
+            <select value={selectedBankId} onChange={(e) => pickBank(e.target.value)}>
+              <option value="">Select a bank…</option>
+              {BANKS.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
+            </select>
+          )}
+        </div>
         <div className="fg"><label>Facility Type</label>
           <select value={form.type} onChange={set('type')}>
             {FACILITY_TYPES.map((t) => <option key={t}>{t}</option>)}

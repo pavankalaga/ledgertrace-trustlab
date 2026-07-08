@@ -1,13 +1,163 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getUsers, createUser, updateUser, getCompany, updateCompany, syncGRN } from '../../api';
+import { useBankStore, addBank, updateBank, deleteBank } from '../../bankStore';
 
 const Toggle = ({ defaultOn = false }) => {
   const [on, setOn] = useState(defaultOn);
   return <div className={`toggle ${on ? 'on' : ''}`} onClick={() => setOn(!on)} />;
 };
 
+/* ═════════════════════════════════════════════════════════════════════
+   BANK CONFIG panel — its own component so state is scoped locally.
+   ═════════════════════════════════════════════════════════════════════ */
+const BankConfigPanel = ({ onShowToast }) => {
+  const { BANKS } = useBankStore();
+  const emptyBank = { name: '', branchCode: '', contacts: [{ name: '', phone: '', info: '' }] };
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyBank);
+
+  const startNew = () => { setEditingId(null); setForm({ ...emptyBank, contacts: [{ name: '', phone: '', info: '' }] }); };
+  const startEdit = (b) => {
+    setEditingId(b.id);
+    setForm({
+      name: b.name,
+      branchCode: b.branchCode,
+      contacts: b.contacts.length ? b.contacts.map((c) => ({ ...c })) : [{ name: '', phone: '', info: '' }],
+    });
+  };
+
+  const setField = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const setContact = (idx, k) => (e) => {
+    const contacts = form.contacts.slice();
+    contacts[idx] = { ...contacts[idx], [k]: e.target.value };
+    setForm({ ...form, contacts });
+  };
+  const addContact = () => setForm({ ...form, contacts: [...form.contacts, { name: '', phone: '', info: '' }] });
+  const removeContact = (idx) => {
+    const contacts = form.contacts.slice();
+    contacts.splice(idx, 1);
+    setForm({ ...form, contacts: contacts.length ? contacts : [{ name: '', phone: '', info: '' }] });
+  };
+
+  const save = () => {
+    if (!form.name.trim()) {
+      onShowToast && onShowToast('Bank name is required');
+      return;
+    }
+    if (editingId) {
+      updateBank(editingId, form);
+      onShowToast && onShowToast('✓ Bank updated');
+    } else {
+      addBank(form);
+      onShowToast && onShowToast('✓ Bank added');
+    }
+    startNew();
+  };
+
+  const remove = (id) => {
+    if (!window.confirm('Remove this bank from the config?')) return;
+    deleteBank(id);
+    if (editingId === id) startNew();
+    onShowToast && onShowToast('Bank removed');
+  };
+
+  return (
+    <div className="settings-section">
+      <div className="ss-hd">{editingId ? 'Edit Bank' : 'Add Bank'}</div>
+      <div className="ss-body">
+        <div className="form-grid">
+          <div className="ff">
+            <label className="f-label">Bank Name *</label>
+            <input className="f-input" value={form.name} onChange={setField('name')} />
+          </div>
+          <div className="ff">
+            <label className="f-label">Branch Code</label>
+            <input className="f-input" value={form.branchCode} onChange={setField('branchCode')} />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 20, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: .6 }}>Contact Details</div>
+          <button type="button" className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: 12 }} onClick={addContact}>+ Add more</button>
+        </div>
+
+        {form.contacts.map((c, idx) => (
+          <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr auto', gap: 8, marginBottom: 8, alignItems: 'end' }}>
+            <div className="ff" style={{ margin: 0 }}>
+              <label className="f-label">Contact Name</label>
+              <input className="f-input" value={c.name} onChange={setContact(idx, 'name')} />
+            </div>
+            <div className="ff" style={{ margin: 0 }}>
+              <label className="f-label">Phone</label>
+              <input className="f-input" value={c.phone} onChange={setContact(idx, 'phone')} />
+            </div>
+            <div className="ff" style={{ margin: 0 }}>
+              <label className="f-label">Additional Info</label>
+              <input className="f-input" value={c.info} onChange={setContact(idx, 'info')} />
+            </div>
+            <button type="button" className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: 14, color: 'var(--coral)' }}
+              onClick={() => removeContact(idx)} title="Remove contact">×</button>
+          </div>
+        ))}
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          {editingId && <button className="btn btn-ghost" onClick={startNew}>Cancel</button>}
+          <button className="btn btn-primary" onClick={save}>{editingId ? 'Save changes' : 'Add bank'}</button>
+        </div>
+      </div>
+
+      <div className="ss-hd" style={{ marginTop: 24 }}>Configured Banks</div>
+      <div className="ss-body">
+        {BANKS.length === 0 ? (
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink4)', fontSize: 13 }}>No banks configured yet.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid var(--rule2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--ink3)' }}>Bank</th>
+                <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid var(--rule2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--ink3)' }}>Branch Code</th>
+                <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid var(--rule2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--ink3)' }}>Contacts</th>
+                <th style={{ padding: '8px 10px', borderBottom: '2px solid var(--rule2)' }} />
+              </tr>
+            </thead>
+            <tbody>
+              {BANKS.map((b) => (
+                <tr key={b.id}>
+                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', fontWeight: 600 }}>{b.name}</td>
+                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>{b.branchCode || '—'}</td>
+                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)' }}>
+                    {b.contacts.length === 0 ? <span style={{ color: 'var(--ink4)' }}>—</span> : b.contacts.map((c) => (
+                      <div key={c.id} style={{ marginBottom: 2 }}>
+                        <b>{c.name || '(no name)'}</b>{c.phone ? ` · ${c.phone}` : ''}{c.info ? ` · ${c.info}` : ''}
+                      </div>
+                    ))}
+                  </td>
+                  <td style={{ padding: '10px', borderBottom: '1px solid var(--rule2)', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5 }} onClick={() => startEdit(b)}>Edit</button>{' '}
+                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11.5, color: 'var(--coral)' }} onClick={() => remove(b.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Settings = ({ onShowToast }) => {
-  const [activePanel, setActivePanel] = useState('profile');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Derive active panel from URL: /settings/<panel> — falls back to 'profile'.
+  const panelFromUrl = (() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    return parts[1] || 'profile';
+  })();
+  const activePanel = panelFromUrl;
+  const setActivePanel = (key) => navigate(`/settings/${key}`);
   const [users, setUsers] = useState([]);
   const [profile, setProfile] = useState({ name: '', role: '', dept: '', initials: '' });
   const [company, setCompany] = useState({ name: '', gstin: '', pan: '', address: '', fyStart: '1 April', currency: 'INR (₹)' });
@@ -95,6 +245,7 @@ const Settings = ({ onShowToast }) => {
     { key: 'notifications', label: 'Notifications', icon: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg> },
     { key: 'company', label: 'Company Info', icon: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> },
     { key: 'datasync', label: 'Data Sync', icon: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> },
+    { key: 'bank-config', label: 'Bank Config', icon: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m4-11v11m4-11v11m4-11v11m4-11v11" /></svg> },
   ];
 
   const workflowStages = [
@@ -288,6 +439,11 @@ const Settings = ({ onShowToast }) => {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Bank Config */}
+          <div className={`settings-panel ${activePanel === 'bank-config' ? 'active' : ''}`}>
+            <BankConfigPanel onShowToast={onShowToast} />
           </div>
         </div>
       </div>

@@ -106,7 +106,8 @@ function App() {
         <div className="content">
           <Routes>
             {routes
-              .filter(r => isCMD(user) || r.key !== 'settings')
+              // Settings section is CMD-only (was previously a single 'settings' key).
+              .filter(r => isCMD(user) || r.section !== 'Settings')
               .map(({ path, key, component: Component }) => (
                 <Route
                   key={key}
