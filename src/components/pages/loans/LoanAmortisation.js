@@ -8,6 +8,7 @@ import {
   fmtLakh, fmtINR, fmtDate, daysTo,
   TKO_ITEMS, CLS_ITEMS,
 } from '../../../loanStore';
+import { isCMD } from '../../../utils';
 import LoanModal from './LoanModal';
 import './loans.css';
 
@@ -188,12 +189,14 @@ const PrepaymentModal = ({ isOpen, onClose, defaultLoanId }) => {
 /* ═════════════════════════════════════════════════════════════════════
    MAIN PAGE
    ═════════════════════════════════════════════════════════════════════ */
-const LoanAmortisation = () => {
+const LoanAmortisation = ({ user }) => {
   const { LOANS } = useLoanStore();
   const [params, setParams] = useSearchParams();
   const paramLoan = params.get('loan');
   const [loanId, setLoanId] = useState(paramLoan || (LOANS[0] && LOANS[0].id) || '');
   const [modal, setModal] = useState(null); // 'pay' | 'prep'
+  // Admin (CMD) sees this page read-only. AP-style users get full access.
+  const readOnly = isCMD(user);
 
   useEffect(() => {
     if (paramLoan && paramLoan !== loanId) setLoanId(paramLoan);
@@ -233,22 +236,24 @@ const LoanAmortisation = () => {
             </select>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            className="ldk-btn ghost"
-            disabled={!hasLiveTerm}
-            title={hasLiveTerm ? undefined : 'Add a live term facility first'}
-            onClick={() => setModal('prep')}>
-            Lumpsum prepayment
-          </button>
-          <button
-            className="ldk-btn primary"
-            disabled={!hasLive}
-            title={hasLive ? undefined : 'Add a live facility first'}
-            onClick={() => setModal('pay')}>
-            Record repayment
-          </button>
-        </div>
+        {!readOnly && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="ldk-btn ghost"
+              disabled={!hasLiveTerm}
+              title={hasLiveTerm ? undefined : 'Add a live term facility first'}
+              onClick={() => setModal('prep')}>
+              Lumpsum prepayment
+            </button>
+            <button
+              className="ldk-btn primary"
+              disabled={!hasLive}
+              title={hasLive ? undefined : 'Add a live facility first'}
+              onClick={() => setModal('pay')}>
+              Record repayment
+            </button>
+          </div>
+        )}
       </div>
 
       {!l && (
@@ -292,7 +297,10 @@ const LoanAmortisation = () => {
             {TKO_ITEMS.map(([k, lbl]) => {
               const done = l.tkoChecklist && l.tkoChecklist[k];
               return (
-                <div key={k} className={done ? 'done' : 'pend'} onClick={() => toggleTkoItem(l.id, k)}>
+                <div key={k}
+                  className={done ? 'done' : 'pend'}
+                  style={readOnly ? { cursor: 'default' } : undefined}
+                  onClick={() => { if (!readOnly) toggleTkoItem(l.id, k); }}>
                   {done ? '☑' : '☐'} {lbl}
                 </div>
               );
@@ -314,7 +322,10 @@ const LoanAmortisation = () => {
             {CLS_ITEMS.map(([k, lbl]) => {
               const done = l.clsChecklist && l.clsChecklist[k];
               return (
-                <div key={k} className={done ? 'done' : 'pend'} onClick={() => toggleClsItem(l.id, k)}>
+                <div key={k}
+                  className={done ? 'done' : 'pend'}
+                  style={readOnly ? { cursor: 'default' } : undefined}
+                  onClick={() => { if (!readOnly) toggleClsItem(l.id, k); }}>
                   {done ? '☑' : '☐'} {lbl}
                 </div>
               );

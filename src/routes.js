@@ -54,12 +54,14 @@ const routes = [
   { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payment Management', component: AdvancePayments, icon: 'advance' },
 
   // ── Loan Management (LoanDesk) ───────────────────────────────────────
-  { path: '/loans/register', key: 'loan-register', label: 'Loan Register', section: 'Loan Management', component: LoanRegister, icon: 'loan-register' },
-  { path: '/loans/amortisation', key: 'loan-amortisation', label: 'Amortisation', section: 'Loan Management', component: LoanAmortisation, icon: 'loan-amort' },
-  { path: '/loans/repayments', key: 'loan-repayments', label: 'Repayments', section: 'Loan Management', component: LoanRepayments, icon: 'loan-repay' },
-  { path: '/loans/documents', key: 'loan-documents', label: 'Loan Documents', section: 'Loan Management', component: LoanDocuments, icon: 'loan-docs' },
-  { path: '/loans/properties', key: 'loan-properties', label: 'Mortgaged Properties', section: 'Loan Management', component: MortgagedProperties, icon: 'loan-property' },
-  { path: '/loans/charges', key: 'loan-charges', label: 'Charges & Compliance', section: 'Loan Management', component: ChargesCompliance, icon: 'loan-charges' },
+  // First 3 → operational modules for AP-style users (full access), admin
+  // sees them read-only. Last 3 → admin-only modules (adminOnly: true).
+  { path: '/loans/register',      key: 'loan-register',     label: 'Loan Register',        section: 'Loan Management', component: LoanRegister,        icon: 'loan-register' },
+  { path: '/loans/amortisation',  key: 'loan-amortisation', label: 'Amortisation',         section: 'Loan Management', component: LoanAmortisation,    icon: 'loan-amort' },
+  { path: '/loans/repayments',    key: 'loan-repayments',   label: 'Repayments',           section: 'Loan Management', component: LoanRepayments,      icon: 'loan-repay' },
+  { path: '/loans/documents',     key: 'loan-documents',    label: 'Loan Documents',       section: 'Loan Management', component: LoanDocuments,       icon: 'loan-docs',     adminOnly: true },
+  { path: '/loans/properties',    key: 'loan-properties',   label: 'Mortgaged Properties', section: 'Loan Management', component: MortgagedProperties, icon: 'loan-property', adminOnly: true },
+  { path: '/loans/charges',       key: 'loan-charges',      label: 'Charges & Compliance', section: 'Loan Management', component: ChargesCompliance,   icon: 'loan-charges',  adminOnly: true },
 
   // ── Settings (CMD-only) ──────────────────────────────────────────────
   // Every entry mounts the same Settings page; the page reads the URL to

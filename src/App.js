@@ -106,8 +106,9 @@ function App() {
         <div className="content">
           <Routes>
             {routes
-              // Settings section is CMD-only (was previously a single 'settings' key).
-              .filter(r => isCMD(user) || r.section !== 'Settings')
+              // Non-CMD users cannot access the Settings section or any
+              // adminOnly Loan Management modules (deep-links 404 too).
+              .filter(r => isCMD(user) || (r.section !== 'Settings' && !r.adminOnly))
               .map(({ path, key, component: Component }) => (
                 <Route
                   key={key}

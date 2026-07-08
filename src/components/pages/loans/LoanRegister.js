@@ -8,6 +8,7 @@ import {
   FACILITY_TYPES, RATE_BASES, DOC_STAGES,
 } from '../../../loanStore';
 import { useBankStore, bankLabel, bankId } from '../../../bankStore';
+import { isCMD } from '../../../utils';
 import LoanModal from './LoanModal';
 import './loans.css';
 
@@ -449,7 +450,7 @@ const TakeoverModal = ({ isOpen, onClose }) => {
 /* ═════════════════════════════════════════════════════════════════════
    MAIN PAGE
    ═════════════════════════════════════════════════════════════════════ */
-const LoanRegister = () => {
+const LoanRegister = ({ user }) => {
   const { LOANS } = useLoanStore();
   const navigate = useNavigate();
   const [fType, setFType] = useState('');
@@ -457,6 +458,9 @@ const LoanRegister = () => {
   const [q, setQ] = useState('');
   const [modal, setModal] = useState(null); // 'add' | 'edit' | 'renew' | 'closure' | 'takeover'
   const [editingId, setEditingId] = useState(null);
+  // Admin (CMD) has read-only access on this module. Non-admin users
+  // (AP-style) get full CRUD.
+  const readOnly = isCMD(user);
 
   const rows = LOANS.filter((l) =>
     (!fType || l.type === fType)
@@ -485,12 +489,14 @@ const LoanRegister = () => {
           </select>
           <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lender / sanction ref…" style={{ minWidth: 220 }} />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="ldk-btn ghost" onClick={() => setModal('renew')}>Renew / restructure</button>
-          <button className="ldk-btn ghost" onClick={() => setModal('closure')}>Record early closure</button>
-          <button className="ldk-btn ghost" onClick={() => setModal('takeover')}>Record takeover</button>
-          <button className="ldk-btn primary" onClick={() => { setEditingId(null); setModal('add'); }}>+ Add facility</button>
-        </div>
+        {!readOnly && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="ldk-btn ghost" onClick={() => setModal('renew')}>Renew / restructure</button>
+            <button className="ldk-btn ghost" onClick={() => setModal('closure')}>Record early closure</button>
+            <button className="ldk-btn ghost" onClick={() => setModal('takeover')}>Record takeover</button>
+            <button className="ldk-btn primary" onClick={() => { setEditingId(null); setModal('add'); }}>+ Add facility</button>
+          </div>
+        )}
       </div>
 
       <div className="ldk-card" style={{ overflowX: 'auto' }}>
@@ -501,12 +507,12 @@ const LoanRegister = () => {
               <th>Sanction Ref &amp; Date</th>
               <th className="num">Sanctioned</th><th className="num">Outstanding</th>
               <th>Rate</th><th className="num">EMI</th><th>Repaid</th>
-              <th>Status</th><th />
+              <th>Status</th>{!readOnly && <th />}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan="11" className="ldk-empty">No facilities match the current filter.</td></tr>
+              <tr><td colSpan={readOnly ? 10 : 11} className="ldk-empty">No facilities match the current filter.</td></tr>
             ) : rows.map((l) => {
               const out = outstanding(l);
               const opLim = operativeLimit(l);
@@ -561,9 +567,11 @@ const LoanRegister = () => {
                       <><br /><span className="link-chip" onClick={(e) => { e.stopPropagation(); openInAmort(l.takeoverOf); }} title="View facility taken over">↩ {l.takeoverOf}</span></>
                     )}
                   </td>
-                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <button className="ldk-btn ghost sm" onClick={(e) => { e.stopPropagation(); editLoan(l.id); }}>Edit</button>
-                  </td>
+                  {!readOnly && (
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <button className="ldk-btn ghost sm" onClick={(e) => { e.stopPropagation(); editLoan(l.id); }}>Edit</button>
+                    </td>
+                  )}
                 </tr>
               );
             })}

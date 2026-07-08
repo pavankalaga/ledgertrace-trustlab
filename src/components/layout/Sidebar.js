@@ -51,8 +51,9 @@ const Sidebar = ({ isOpen, onClose, invoices = [], user }) => {
 
   const visibleRoutes = (isCMD(user)
     ? routes
-    // Whole Settings section is CMD-only.
-    : routes.filter(r => r.section !== 'Settings')
+    // Non-CMD: hide the whole Settings section AND anything flagged
+    // adminOnly (last 3 Loan Management modules).
+    : routes.filter(r => r.section !== 'Settings' && !r.adminOnly)
   ).filter(r => !r.hideFromSidebar);
 
   const sections = [];
