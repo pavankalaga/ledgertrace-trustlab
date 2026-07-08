@@ -20,9 +20,6 @@ import LoanAnalysis from './components/pages/loans/LoanAnalysis';
 import LoanRegister from './components/pages/loans/LoanRegister';
 import LoanAmortisation from './components/pages/loans/LoanAmortisation';
 import LoanRepayments from './components/pages/loans/LoanRepayments';
-import LoanDocuments from './components/pages/loans/LoanDocuments';
-import MortgagedProperties from './components/pages/loans/MortgagedProperties';
-import ChargesCompliance from './components/pages/loans/ChargesCompliance';
 
 // `hideFromSidebar` keeps the route registered (deep links still work) but
 // hides the item from the sidebar navigation.
@@ -54,14 +51,13 @@ const routes = [
   { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payment Management', component: AdvancePayments, icon: 'advance' },
 
   // ── Loan Management (LoanDesk) ───────────────────────────────────────
-  // First 3 → operational modules for AP-style users (full access), admin
-  // sees them read-only. Last 3 → admin-only modules (adminOnly: true).
-  { path: '/loans/register',      key: 'loan-register',     label: 'Loan Register',        section: 'Loan Management', component: LoanRegister,        icon: 'loan-register' },
-  { path: '/loans/amortisation',  key: 'loan-amortisation', label: 'Amortisation',         section: 'Loan Management', component: LoanAmortisation,    icon: 'loan-amort' },
-  { path: '/loans/repayments',    key: 'loan-repayments',   label: 'Repayments',           section: 'Loan Management', component: LoanRepayments,      icon: 'loan-repay' },
-  { path: '/loans/documents',     key: 'loan-documents',    label: 'Loan Documents',       section: 'Loan Management', component: LoanDocuments,       icon: 'loan-docs',     adminOnly: true },
-  { path: '/loans/properties',    key: 'loan-properties',   label: 'Mortgaged Properties', section: 'Loan Management', component: MortgagedProperties, icon: 'loan-property', adminOnly: true },
-  { path: '/loans/charges',       key: 'loan-charges',      label: 'Charges & Compliance', section: 'Loan Management', component: ChargesCompliance,   icon: 'loan-charges',  adminOnly: true },
+  // Operational modules for AP-style users (full access). Admin currently
+  // sees them read-only (see `isCMD` gate inside each page); next flow to
+  // be defined. Add adminOnly:true on future admin-scoped modules to keep
+  // them hidden from AP.
+  { path: '/loans/register',      key: 'loan-register',     label: 'Loan Register', section: 'Loan Management', component: LoanRegister,     icon: 'loan-register' },
+  { path: '/loans/amortisation',  key: 'loan-amortisation', label: 'Amortisation',  section: 'Loan Management', component: LoanAmortisation, icon: 'loan-amort' },
+  { path: '/loans/repayments',    key: 'loan-repayments',   label: 'Repayments',    section: 'Loan Management', component: LoanRepayments,   icon: 'loan-repay' },
 
   // ── Settings (CMD-only) ──────────────────────────────────────────────
   // Every entry mounts the same Settings page; the page reads the URL to
