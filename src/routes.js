@@ -21,19 +21,21 @@ const routes = [
   // ── Overview ─────────────────────────────────────────────────────────
   { path: '/', key: 'dashboard', label: 'Dashboard', section: 'Overview', component: Dashboard, icon: 'dashboard' },
   { path: '/mld', key: 'mld', label: 'MLD', section: 'Overview', component: MLD, icon: 'mld' },
+  { path: '/supplier-ledger', key: 'supplier-ledger', label: 'Supplier Ledger', section: 'Overview', component: SupplierLedger, icon: 'ledger' },
+  { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Overview', component: SpendAnalytics, icon: 'analytics' },
+  { path: '/reports', key: 'reports', label: 'Reports & Analytics', section: 'Overview', component: Reports, icon: 'reports' },
 
   // ── Workflow ─────────────────────────────────────────────────────────
   { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Workflow', component: Invoices, icon: 'invoices' },
-  { path: '/payments', key: 'payments', label: 'Payments', section: 'Workflow', component: Payments, icon: 'payments' },
-  { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Workflow', component: FixedPayments, icon: 'fixed' },
-  { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Workflow', component: AdvancePayments, icon: 'advance' },
   { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Workflow', component: PDCTracker, icon: 'pdc' },
   { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Workflow', component: ChequeTracker, icon: 'cheque' },
   { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Workflow', component: TransactionsRegister, icon: 'register' },
-  { path: '/supplier-ledger', key: 'supplier-ledger', label: 'Supplier Ledger', section: 'Workflow', component: SupplierLedger, icon: 'ledger' },
-  { path: '/spend-analytics', key: 'spend-analytics', label: 'Spend Analytics', section: 'Workflow', component: SpendAnalytics, icon: 'analytics' },
-  { path: '/reports', key: 'reports', label: 'Reports', section: 'Workflow', component: Reports, icon: 'reports' },
   { path: '/suppliers', key: 'suppliers', label: 'Suppliers', section: 'Workflow', component: Suppliers, icon: 'suppliers' },
+
+  // ── Payments ─────────────────────────────────────────────────────────
+  { path: '/payments', key: 'payments', label: 'Payments', section: 'Payments', component: Payments, icon: 'payments' },
+  { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Payments', component: FixedPayments, icon: 'fixed' },
+  { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payments', component: AdvancePayments, icon: 'advance' },
 
   // ── System (CMD-only) ────────────────────────────────────────────────
   { path: '/settings', key: 'settings', label: 'Settings', section: 'System', component: Settings, icon: 'settings' },
