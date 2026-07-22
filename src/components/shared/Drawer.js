@@ -5,7 +5,8 @@ import InlineEdit from './InlineEdit';
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
   if (!invoice || !stages.length) return null;
 
-  const stageNames = ['Invoice Received', 'Dept Justification', 'AP Verification', 'Finance/CMD Approval', 'Tally ERP Entry', 'Payment Approval', 'Payment Released', 'Paid'];
+  // Must stay in the same order as STAGE_DEFINITIONS in backend/routes/stages.js
+  const stageNames = ['Invoice Received / Dept Justified', 'Finance Verification', 'CMD Approval', 'Tally Entry', 'Payment Queue', 'Payment Release', 'Payment Approved', 'Paid'];
 
   // Role-based: determine if current user can advance from current stage
   const userRole = user?.role || '';
@@ -23,9 +24,9 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
   const isCompleted = invoice.stageIdx >= 7;
 
   // Edit permission:
-  // Stage 0-2: Accounts Payable dept OR admin can edit
-  // Stage 3 (Finance/CMD Approval): admin only
-  // Stage 4+: no one can edit
+  // Stage 0-2 (up to CMD Approval): Accounts Payable dept OR admin can edit
+  // Stage 3 (Tally Entry): admin only
+  // Stage 4+ (Payment Queue onward): no one can edit
   const isAccountant = userDept === 'Accounts Payable';
   const canEdit =
     invoice.stageIdx <= 2 ? (isCMD || isAccountant) :
@@ -43,9 +44,10 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
   };
 
   const getDetail = (i, d) => {
-    if (i === 1) {
-      // Dept Justification — inline-editable, regardless of stage completion
-      const stageReached = invoice.stageIdx >= 1;
+    if (i === 0) {
+      // Dept justification — inline-editable, regardless of stage completion.
+      // Lives on stage 0 now that receipt and justification share one stage.
+      const stageReached = invoice.stageIdx >= 0;
       return (
         <>
           {stageReached && d !== '—' ? <em>{d}</em> : <em style={{ color: 'var(--ink4)' }}>Pending</em>}
@@ -63,12 +65,12 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
     }
     if (d === '—') return 'Pending';
     switch (i) {
-      case 0: return <><em>{d}</em> · Invoice received</>;
-      case 2: return <><em>{d}</em> · Accounts Payable verification</>;
-      case 3: return <><em>{d}</em> · {invoice.fin || 'Finance/CMD approval'}</>;
-      case 4: return <><em>{d}</em> · Entered in Tally ERP</>;
-      case 5: return <><em>{d}</em> · Payment approval requested</>;
-      case 6: return <><em>{d}</em> · Payment release approved</>;
+      case 1: return <><em>{d}</em> · {invoice.fin || 'Finance verification'}</>;
+      case 2: return <><em>{d}</em> · {invoice.cmd || 'CMD approval'}</>;
+      case 3: return <><em>{d}</em> · Entered in Tally</>;
+      case 4: return <><em>{d}</em> · Queued for payment</>;
+      case 5: return <><em>{d}</em> · Payment released</>;
+      case 6: return <><em>{d}</em> · Payment approved</>;
       case 7: return <><em>{d}</em> · {invoice.pmtmode || '—'} · UTR: {invoice.utr || '—'}</>;
       default: return 'Pending';
     }
@@ -152,7 +154,7 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
               const isLastDone = done && i === 6 && invoice.stageIdx === 7;
               const isFullyPaid = isCompleted && i === 7;
 
-              // Blue for last 2 stages when completed (Payment Released + Paid)
+              // Blue for last 2 stages when completed (Payment Approved + Paid)
               const cls = (isLastDone || isFullyPaid)
                 ? 'lc-done lc-blue'
                 : done ? 'lc-done'

@@ -65,8 +65,8 @@ const Approvals = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =
   const [activeTab, setActiveTab] = useState('fin');
 
   // Dynamic lists based on invoice stage (8-stage flow)
-  // Stage 3: Finance/CMD Approval, Stage 4: Tally ERP Entry (Finance handles both)
-  // Stage 5: Payment Approval, Stage 6: Payment Released (CMD handles)
+  // Stage 3: Tally Entry, Stage 4: Payment Queue (Finance handles both)
+  // Stage 5: Payment Release, Stage 6: Payment Approved (CMD handles)
   const finList = invoices.filter(i => i.stageIdx === 3 || i.stageIdx === 4);
   const cmdList = invoices.filter(i => i.stageIdx === 5);
   const pmtList = invoices.filter(i => i.stageIdx === 6);

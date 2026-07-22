@@ -1,9 +1,9 @@
 const Invoice = require('../models/Invoice');
 
 // Map "Received By" department to starting stage index
-// Stage 0: Invoice Received, 1: Dept Justification, 2: AP Verification,
-// 3: Finance/CMD Approval, 4: Tally ERP Entry, 5: Payment Approval,
-// 6: Payment Released, 7: Paid
+// Stage 0: Invoice Received / Dept Justified, 1: Finance Verification,
+// 2: CMD Approval, 3: Tally Entry, 4: Payment Queue,
+// 5: Payment Release, 6: Payment Approved, 7: Paid
 const deptToStageIdx = {
   'CMD': 3,
   'Procurement': 1,
@@ -16,15 +16,16 @@ const deptToStageIdx = {
   'Facilities': 1,
 };
 
+// The "next action" shown on the advance button, indexed by current stage.
 const actions = [
-  'Route to Department',           // from stage 0
-  'Send to Accounts Payable',      // from stage 1
-  'Finance/CMD Approval Required', // from stage 2
-  'Enter in Tally ERP',            // from stage 3
-  'Request Payment Approval',      // from stage 4
-  'Release Payment',               // from stage 5
-  'Mark as Paid',                  // from stage 6
-  'Completed',                     // from stage 7
+  'Send for Finance Verification', // from stage 0 (Invoice Received / Dept Justified)
+  'Send for CMD Approval',         // from stage 1 (Finance Verification)
+  'Enter in Tally',                // from stage 2 (CMD Approval)
+  'Add to Payment Queue',          // from stage 3 (Tally Entry)
+  'Release Payment',               // from stage 4 (Payment Queue)
+  'Approve Payment',               // from stage 5 (Payment Release)
+  'Mark as Paid',                  // from stage 6 (Payment Approved)
+  'Completed',                     // from stage 7 (Paid)
 ];
 
 // Build the full Invoice document from user input + a pre-assigned id.
@@ -239,9 +240,9 @@ const update = async (req, res) => {
 
 // Map user department/role to which stageIdx they can advance FROM
 const deptCanAdvanceFrom = {
-  'Procurement': [0, 1],        // Can advance from Invoice Received(0) and Dept Justification(1)
-  'Accounts Payable': [2],      // Can advance from AP Verification(2)
-  'Finance': [3, 4],            // Can advance from Finance/CMD Approval(3) and Tally Entry(4)
+  'Procurement': [0, 1],        // Can advance from Invoice Received/Dept Justified(0) and Finance Verification(1)
+  'Accounts Payable': [2],      // Can advance from CMD Approval(2)
+  'Finance': [3, 4],            // Can advance from Tally Entry(3) and Payment Queue(4)
 };
 
 // PUT /api/invoices/:id/advance — move invoice to next stage
