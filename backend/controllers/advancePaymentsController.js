@@ -21,6 +21,14 @@ const isAPUser = (u = {}) => {
       || d.includes('accountant')
       || r === 'ap' || d === 'ap';
 };
+// Business Head - Administration. Note this deliberately does NOT collide
+// with isCMDUser: that matches "administrator", this dept is spelled
+// "Administration", and neither substring matches the other.
+const isBusinessHeadUser = (u = {}) => {
+  const r = (u.role || '').toLowerCase();
+  const d = (u.dept || '').toLowerCase();
+  return r.includes('business head') || d.includes('business head');
+};
 
 // Older JWTs don't include `dept` — fetch the full user record so role/dept
 // checks are always accurate without forcing every user to re-login.
@@ -117,11 +125,11 @@ const advanceStage = async (req, res) => {
 
     // Stage 0 → 1 requires AP (CMD/admin can also do it as override)
     // Stage 1 → 2 requires CMD only
-    if (adv.stageIdx === 0 && !(isAPUser(user) || isCMDUser(user))) {
-      return res.status(403).json({ message: `Only Accounts Payable / Accountant can approve at this stage (your role: ${user?.role || '—'})` });
+    if (adv.stageIdx === 0 && !(isAPUser(user) || isCMDUser(user) || isBusinessHeadUser(user))) {
+      return res.status(403).json({ message: `Only Accounts Payable / Business Head / Admin can approve at this stage (your role: ${user?.role || '—'})` });
     }
-    if (adv.stageIdx === 1 && !isCMDUser(user)) {
-      return res.status(403).json({ message: `Only CMD can give final approval (your role: ${user?.role || '—'})` });
+    if (adv.stageIdx === 1 && !(isCMDUser(user) || isBusinessHeadUser(user))) {
+      return res.status(403).json({ message: `Only Business Head / Admin can give final approval (your role: ${user?.role || '—'})` });
     }
 
     adv.stageIdx += 1;
@@ -194,11 +202,11 @@ const reject = async (req, res) => {
 
     const user = await resolveUser(req);
 
-    if (adv.stageIdx === 0 && !(isAPUser(user) || isCMDUser(user))) {
+    if (adv.stageIdx === 0 && !(isAPUser(user) || isCMDUser(user) || isBusinessHeadUser(user))) {
       return res.status(403).json({ message: `Not authorized to reject (your role: ${user?.role || '—'})` });
     }
-    if (adv.stageIdx === 1 && !isCMDUser(user)) {
-      return res.status(403).json({ message: `Only CMD can reject at this stage (your role: ${user?.role || '—'})` });
+    if (adv.stageIdx === 1 && !(isCMDUser(user) || isBusinessHeadUser(user))) {
+      return res.status(403).json({ message: `Only Business Head / Admin can reject at this stage (your role: ${user?.role || '—'})` });
     }
 
     adv.rejected = true;

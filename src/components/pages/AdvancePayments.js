@@ -31,9 +31,19 @@ const isAP = (u) => {
       || d.includes('accountant')
       || r === 'ap' || d === 'ap';
 };
+// Business Head - Administration. Does not collide with isCMD: that matches
+// "administrator", this dept is spelled "Administration".
+const isBusinessHead = (u) => {
+  if (!u) return false;
+  const r = (u.role || '').toLowerCase();
+  const d = (u.dept || '').toLowerCase();
+  return r.includes('business head') || d.includes('business head');
+};
+// Mirrors the gate in backend/controllers/advancePaymentsController.js —
+// the server is what actually enforces this.
 const canApprove = (stageIdx, u) => {
-  if (stageIdx === 0) return isAP(u) || isCMD(u);
-  if (stageIdx === 1) return isCMD(u);
+  if (stageIdx === 0) return isAP(u) || isCMD(u) || isBusinessHead(u);
+  if (stageIdx === 1) return isCMD(u) || isBusinessHead(u);
   return false;
 };
 const canReject = (stageIdx, u) => canApprove(stageIdx, u);
@@ -383,7 +393,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
               <tr>
                 <th>ADV ID</th><th>Category</th><th>Vendor</th><th>Location</th>
                 <th>PO #</th><th>Proforma</th><th style={{ textAlign: 'right' }}>Amount</th>
-                <th>Type</th><th>Stage</th><th>Paid</th><th>Action</th>
+                <th>Type</th><th>Stage</th><th>Action</th><th>Paid</th>
                 <th style={{ minWidth: 180 }}>Description</th>
               </tr>
             </thead>
@@ -404,6 +414,22 @@ const AdvancePayments = ({ user, onShowToast }) => {
                   </td>
                   <td><StageChip adv={r} /></td>
                   <td>
+                    {!r.rejected && r.stageIdx < 2 && canApprove(r.stageIdx, user) && (
+                      <button className="btn btn-primary btn-sm" onClick={() => handleApprove(r)} title={r.stageIdx === 0 ? 'First approval' : 'Final approval'}>
+                        ✓ Approve
+                      </button>
+                    )}
+                    {!r.rejected && r.stageIdx < 2 && canReject(r.stageIdx, user) && (
+                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => { setRejecting(r); setRejectReason(''); }}>Reject</button>
+                    )}
+                    {r.stageIdx === 0 && !r.rejected && (
+                      <>
+                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={() => handleEdit(r)}>Edit</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => handleDelete(r._id)}>×</button>
+                      </>
+                    )}
+                  </td>
+                  <td>
                     {r.paid ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <span className="pill" style={{ background: 'var(--teal-lt)', color: 'var(--teal-700)', fontWeight: 700 }} title={r.paidRef ? `Ref: ${r.paidRef}${r.paidBy ? ' · by ' + r.paidBy : ''}` : (r.paidBy ? 'by ' + r.paidBy : '')}>
@@ -419,23 +445,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
                     ) : r.rejected ? (
                       <span style={{ fontSize: 11, color: 'var(--ink4)' }}>—</span>
                     ) : (
-                      <span style={{ fontSize: 11, color: 'var(--ink4)' }} title="Available after CMD approval">Pending</span>
-                    )}
-                  </td>
-                  <td>
-                    {!r.rejected && r.stageIdx < 2 && canApprove(r.stageIdx, user) && (
-                      <button className="btn btn-primary btn-sm" onClick={() => handleApprove(r)} title={r.stageIdx === 0 ? 'AP Approve' : 'CMD Final Approve'}>
-                        {r.stageIdx === 0 ? '✓ AP' : '✓ CMD'}
-                      </button>
-                    )}
-                    {!r.rejected && r.stageIdx < 2 && canReject(r.stageIdx, user) && (
-                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => { setRejecting(r); setRejectReason(''); }}>Reject</button>
-                    )}
-                    {r.stageIdx === 0 && !r.rejected && (
-                      <>
-                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={() => handleEdit(r)}>Edit</button>
-                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--coral)', marginLeft: 4 }} onClick={() => handleDelete(r._id)}>×</button>
-                      </>
+                      <span style={{ fontSize: 11, color: 'var(--ink4)' }} title="Available after final approval">Pending</span>
                     )}
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--ink2)', maxWidth: 260 }}>
