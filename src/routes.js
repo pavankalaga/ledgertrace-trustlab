@@ -41,14 +41,14 @@ const routes = [
   { path: '/invoices', key: 'invoices', label: 'All Invoices', section: 'Invoice Management', component: Invoices, icon: 'invoices' },
   { path: '/transactions-register', key: 'transactions-register', label: 'Transactions', section: 'Invoice Management', component: TransactionsRegister, icon: 'register' },
 
-  // ── Cheque Management ────────────────────────────────────────────────
-  { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Cheque Management', component: PDCTracker, icon: 'pdc' },
-  { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Cheque Management', component: ChequeTracker, icon: 'cheque' },
-
   // ── Payment Management ───────────────────────────────────────────────
   { path: '/payments', key: 'payments', label: 'Payments', section: 'Payment Management', component: Payments, icon: 'payments' },
   { path: '/fixed-payments', key: 'fixed-payments', label: 'Fixed Payments', section: 'Payment Management', component: FixedPayments, icon: 'fixed' },
   { path: '/advance-payments', key: 'advance-payments', label: 'Advance Payments', section: 'Payment Management', component: AdvancePayments, icon: 'advance' },
+
+  // ── Cheque Management ────────────────────────────────────────────────
+  { path: '/pdc-tracker', key: 'pdc-tracker', label: 'PDC Tracker', section: 'Cheque Management', component: PDCTracker, icon: 'pdc' },
+  { path: '/cheque-tracker', key: 'cheque-tracker', label: 'Cheque Tracker', section: 'Cheque Management', component: ChequeTracker, icon: 'cheque' },
 
   // ── Loan Management (LoanDesk) ───────────────────────────────────────
   // Operational modules for AP-style users (full access). Admin currently
