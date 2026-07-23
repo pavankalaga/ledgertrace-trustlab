@@ -1,20 +1,14 @@
 const Invoice = require('../models/Invoice');
 
-// Map "Received By" department to starting stage index
 // Stage 0: Invoice Received / Dept Justified, 1: Finance Verification,
 // 2: CMD Approval, 3: Tally Entry, 4: Payment Queue,
 // 5: Payment Release, 6: Payment Approved, 7: Paid
-const deptToStageIdx = {
-  'CMD': 3,
-  'Procurement': 1,
-  'Accounts Payable': 2,
-  'Finance': 3,
-  'Biomedical Operations': 1,
-  'CSD': 1,
-  'Information Technology': 1,
-  'Logistics': 1,
-  'Facilities': 1,
-};
+//
+// Every invoice enters at stage 0 regardless of which department received
+// it. Stage 0 now covers receipt AND the raising department's
+// justification, so no department legitimately starts past it — a
+// per-dept shortcut here would skip Business Head or CMD sign-off.
+const START_STAGE_IDX = 0;
 
 // The "next action" shown on the advance button, indexed by current stage.
 const actions = [
@@ -28,11 +22,18 @@ const actions = [
   'Completed',                     // from stage 7 (Paid)
 ];
 
+// Stage labels, only for error messages. The canonical list lives in
+// backend/routes/stages.js — keep the two in the same order.
+const STAGE_LABELS = [
+  'Invoice Received / Dept Justified', 'Finance Verification', 'CMD Approval',
+  'Tally Entry', 'Payment Queue', 'Payment Release', 'Payment Approved', 'Paid',
+];
+
 // Build the full Invoice document from user input + a pre-assigned id.
 // Shared by single create and bulk create so both go through identical logic.
 const buildInvoicePayload = (input, id) => {
   const receivedBy = input.receivedBy || 'Procurement';
-  const startStageIdx = deptToStageIdx[receivedBy] || 0;
+  const startStageIdx = START_STAGE_IDX;
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
   const dates = ['—', '—', '—', '—', '—', '—', '—', '—'];
@@ -68,7 +69,7 @@ const buildInvoicePayload = (input, id) => {
     netPayable,
     fin: '—', cmd: '—', pmtauth: '—', pmtmode: '—', utr: '—',
     urgency: 'normal',
-    nextAction: actions[startStageIdx] || 'Route to Department',
+    nextAction: actions[startStageIdx] || 'Send for Finance Verification',
     dueType: 'ok',
   };
 };
@@ -238,11 +239,29 @@ const update = async (req, res) => {
   }
 };
 
-// Map user department/role to which stageIdx they can advance FROM
+// Map user department to which stageIdx they can advance FROM.
+// The approval chain, stage by stage:
+//   0 Invoice Received / Dept Justified → raising dept justifies it
+//   1 Finance Verification              → Business Head approves
+//   2 CMD Approval                      → CMD approves
+//   3 Tally Entry                       → Business Head + Accounts Payable
+//   4 Payment Queue                     → Business Head sends to release
+//   5 Payment Release                   → Admin / CMD approves the payment
+//   6 Payment Approved                  → Accounts Payable marks it Paid
+//   7 Paid                              → terminal
+const BUSINESS_HEAD = 'Business Head - Administration';
+
+// Departments that raise invoices — each may justify its own at stage 0.
+const RAISING_DEPTS = [
+  'Procurement', 'Biomedical Operations', 'CSD',
+  'Information Technology', 'Logistics', 'Facilities', 'Finance',
+];
+
 const deptCanAdvanceFrom = {
-  'Procurement': [0, 1],        // Can advance from Invoice Received/Dept Justified(0) and Finance Verification(1)
-  'Accounts Payable': [2],      // Can advance from CMD Approval(2)
-  'Finance': [3, 4],            // Can advance from Tally Entry(3) and Payment Queue(4)
+  [BUSINESS_HEAD]:     [1, 3, 4],
+  'Accounts Payable':  [3, 6],
+  'CMD':               [2, 5],
+  ...Object.fromEntries(RAISING_DEPTS.map(d => [d, [0]])),
 };
 
 // PUT /api/invoices/:id/advance — move invoice to next stage
@@ -261,7 +280,7 @@ const advanceStage = async (req, res) => {
       const allowedStages = deptCanAdvanceFrom[userDept] || [];
       if (!allowedStages.includes(invoice.stageIdx)) {
         return res.status(403).json({
-          error: `Your department (${userDept}) cannot advance invoices at the "${actions[invoice.stageIdx]}" stage`
+          error: `Your department (${userDept}) cannot advance invoices at the "${STAGE_LABELS[invoice.stageIdx]}" stage`
         });
       }
     }

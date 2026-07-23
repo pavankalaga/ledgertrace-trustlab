@@ -271,14 +271,18 @@ const Settings = ({ onShowToast }) => {
     { key: 'bank-config', label: 'Bank Config', icon: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m4-11v11m4-11v11m4-11v11m4-11v11" /></svg> },
   ];
 
+  // Mirrors the 8-stage lifecycle in backend/routes/stages.js. The owner
+  // on each row is the department that advances OUT of that stage — see
+  // deptCanAdvanceFrom in backend/controllers/invoiceController.js.
   const workflowStages = [
-    { num: '01', color: 'var(--s1)', name: 'Invoice Received', owner: 'Procurement Dept.', sla: ['1 day', '2 days', '3 days'], def: 2 },
-    { num: '02', color: 'var(--s2)', name: 'Procurement Review', owner: 'Procurement Team', sla: ['2 days', '5 days', '7 days'], def: 1 },
-    { num: '03', color: 'var(--s3)', name: 'Accounts Payable', owner: 'AP Desk', sla: ['1 day', '3 days', '5 days'], def: 1 },
-    { num: '04', color: 'var(--s4)', name: 'Finance / CMD Approval', owner: 'Finance Manager + CMD', sla: ['2 days', '3 days', '5 days'], def: 0 },
-    { num: '05', color: 'var(--s5)', name: 'Tally ERP Entry', owner: 'AP Team', sla: ['1 day', '2 days'], def: 0 },
-    { num: '06', color: 'var(--s6)', name: 'Payment Authorisation', owner: 'CMD Office', sla: ['2 days', '3 days'], def: 0 },
-    { num: '07', color: 'var(--s7)', name: 'Payment Made', owner: 'Finance Team', sla: ['Same day', '1 day'], def: 0 },
+    { num: '01', color: 'var(--s1)', name: 'Invoice Received / Dept Justified', owner: 'Raising Dept. / Procurement', sla: ['1 day', '2 days', '3 days'], def: 2 },
+    { num: '02', color: 'var(--s2)', name: 'Finance Verification', owner: 'Business Head - Administration', sla: ['2 days', '5 days', '7 days'], def: 1 },
+    { num: '03', color: 'var(--s3)', name: 'CMD Approval', owner: 'CMD', sla: ['1 day', '3 days', '5 days'], def: 1 },
+    { num: '04', color: 'var(--s4)', name: 'Tally Entry', owner: 'Business Head + Accounts Payable', sla: ['1 day', '2 days', '3 days'], def: 0 },
+    { num: '05', color: 'var(--s5)', name: 'Payment Queue', owner: 'Business Head - Administration', sla: ['1 day', '2 days'], def: 0 },
+    { num: '06', color: 'var(--s6)', name: 'Payment Release', owner: 'Admin / CMD Office', sla: ['2 days', '3 days'], def: 0 },
+    { num: '07', color: 'var(--s7)', name: 'Payment Approved', owner: 'Accounts Payable', sla: ['Same day', '1 day'], def: 0 },
+    { num: '08', color: '#3b6fd4',   name: 'Paid', owner: 'Accounts Payable', sla: ['Same day', '1 day'], def: 0 },
   ];
 
   return (

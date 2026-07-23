@@ -5,18 +5,31 @@ import InlineEdit from './InlineEdit';
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
   if (!invoice || !stages.length) return null;
 
-  // Must stay in the same order as STAGE_DEFINITIONS in backend/routes/stages.js
-  const stageNames = ['Invoice Received / Dept Justified', 'Finance Verification', 'CMD Approval', 'Tally Entry', 'Payment Queue', 'Payment Release', 'Payment Approved', 'Paid'];
+  // Read the names off /api/stages rather than keeping a second hardcoded
+  // list here — that duplicate is what let this timeline drift out of sync
+  // with the pipeline header when the stages were renamed.
+  const stageNames = stages.map(s => s.label);
 
   // Role-based: determine if current user can advance from current stage
   const userRole = user?.role || '';
   const userDept = user?.dept || '';
   const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userRole === 'admin' || userDept === 'CMD' || userDept === 'Management';
 
+  // Keep in sync with deptCanAdvanceFrom in backend/controllers/invoiceController.js —
+  // this only greys out the button, the backend is what actually enforces it.
+  //   0 Dept Justified → raising dept   1 Finance Verification → Business Head
+  //   2 CMD Approval   → CMD            3 Tally Entry → Business Head + AP
+  //   4 Payment Queue  → Business Head  5 Payment Release → Admin / CMD
+  //   6 Payment Approved → Accounts Payable
+  const BUSINESS_HEAD = 'Business Head - Administration';
+  const RAISING_DEPTS = ['Procurement', 'Biomedical Operations', 'CSD',
+    'Information Technology', 'Logistics', 'Facilities', 'Finance'];
+
   const deptCanAdvanceFrom = {
-    'Procurement': [0, 1],
-    'Accounts Payable': [2],
-    'Finance': [3, 4],
+    [BUSINESS_HEAD]:    [1, 3, 4],
+    'Accounts Payable': [3, 6],
+    'CMD':              [2, 5],
+    ...Object.fromEntries(RAISING_DEPTS.map(d => [d, [0]])),
   };
 
   const allowedStages = deptCanAdvanceFrom[userDept] || [];
