@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import './App.css';
 import { getInvoices, getStages, getActivities } from './api';
@@ -49,10 +49,21 @@ function App() {
     if (user) refreshData();
   }, [user, refreshData]);
 
+  // A data page (currently Invoices) registers an export handler here; the
+  // Topbar Export button invokes it. Pages clear it on unmount, so on pages
+  // with nothing to export the button shows a hint instead.
+  const exportHandlerRef = useRef(null);
+  const registerExporter = useCallback((fn) => { exportHandlerRef.current = fn; }, []);
+
   const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setToastVisible(true);
   }, []);
+
+  const handleExport = useCallback(() => {
+    if (exportHandlerRef.current) exportHandlerRef.current();
+    else showToast('Export is available on the All Invoices page.');
+  }, [showToast]);
 
   const hideToast = useCallback(() => {
     setToastVisible(false);
@@ -102,6 +113,7 @@ function App() {
           user={user}
           invoices={invoices}
           onOpenDrawer={openDrawer}
+          onExport={handleExport}
         />
         <div className="content">
           <Routes>
@@ -123,6 +135,7 @@ function App() {
                       onShowToast={showToast}
                       onNavigate={handleNavigate}
                       onRefresh={refreshData}
+                      onRegisterExport={registerExporter}
                     />
                   }
                 />

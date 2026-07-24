@@ -1,7 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { syncGRN } from '../../api';
+import { parseAmount } from '../../utils';
 import BulkInvoiceUpload from '../shared/BulkInvoiceUpload';
+
+// Export the currently-filtered invoice list to an .xlsx file. Mirrors the
+// on-screen table columns (minus the View button); amounts are written as
+// real numbers so they stay sortable/summable in Excel. Exports the full
+// filtered set — every page, not just the 15 currently visible.
+const EXPORT_HEADERS = [
+  'Invoice ID', 'Supplier', 'GSTIN', 'Department', 'Invoice Date',
+  'Current Stage', 'Base Amount', 'Total (incl. GST)', 'Due Date',
+];
+
+const exportInvoicesToExcel = ({ list, stages, dateFrom, dateTo }) => {
+  const rows = list.map(inv => [
+    inv.id || '',
+    inv.supplier || '',
+    inv.gstin || '',
+    inv.dept || '',
+    inv.invdate || '',
+    (stages[inv.stageIdx] && stages[inv.stageIdx].label) || '',
+    parseAmount(inv.base),
+    parseAmount(inv.total),
+    inv.due || '',
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 20 }, { wch: 13 },
+    { wch: 24 }, { wch: 15 }, { wch: 17 }, { wch: 13 },
+  ];
+  // Indian-format the two amount columns (G, H) on the data rows.
+  for (let r = 1; r <= rows.length; r++) {
+    ['G', 'H'].forEach(col => {
+      const cell = ws[`${col}${r + 1}`];
+      if (cell && typeof cell.v === 'number') cell.z = '#,##,##0';
+    });
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+  const stamp = (dateFrom && dateTo) ? `_${dateFrom}_to_${dateTo}` : '';
+  XLSX.writeFile(wb, `LedgerTrace-Invoices${stamp}.xlsx`);
+};
 
 const StagePill = ({ stages, stageIdx }) => {
   const s = stages[stageIdx];
@@ -46,7 +89,7 @@ const PAGE_SIZE = 15;
 // FY 2026-27 start — GRN sync must never pull pre-cutoff data. Past invoices load via Bulk Upload.
 const SYNC_MIN_DATE = '2026-04-01';
 
-const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) => {
+const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh, onRegisterExport }) => {
   const fyOptions = getFYOptions();
   const monthRange = getMonthRange();
   const location = useLocation();
@@ -129,6 +172,23 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh }) =>
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(page, totalPages);
   const paged = list.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
+
+  // Expose the current filtered set to the Topbar Export button. The ref is
+  // refreshed every render so the registered handler always sees live filters;
+  // the effect (stable deps) registers once and clears on unmount so other
+  // pages' Export falls back to a hint instead of exporting stale invoices.
+  const exportStateRef = useRef();
+  exportStateRef.current = { list, stages, dateFrom, dateTo };
+  useEffect(() => {
+    if (!onRegisterExport) return undefined;
+    onRegisterExport(() => {
+      const st = exportStateRef.current;
+      if (!st.list.length) { onShowToast('No invoices to export for the selected filters.'); return; }
+      exportInvoicesToExcel(st);
+      onShowToast(`Exported ${st.list.length} invoice${st.list.length === 1 ? '' : 's'} to Excel.`);
+    });
+    return () => onRegisterExport(null);
+  }, [onRegisterExport, onShowToast]);
 
   const handleFilter = (f) => { setFilter(f); setPage(1); };
   const handleStage = (s) => { setStage(s); setPage(1); };

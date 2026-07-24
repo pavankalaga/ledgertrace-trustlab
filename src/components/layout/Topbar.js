@@ -29,7 +29,7 @@ const matches = (needle, ...fields) => {
   return fields.some(f => (f || '').toString().toLowerCase().includes(n));
 };
 
-const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user, invoices = [], onOpenDrawer }) => {
+const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user, invoices = [], onOpenDrawer, onExport }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentRoute = routes.find(r => r.path === location.pathname) || routes[0];
@@ -245,7 +245,7 @@ const Topbar = ({ onShowToast, onOpenModal, onToggleSidebar, onLogout, user, inv
           variant="outlined"
           size="small"
           startIcon={<FileDownloadIcon />}
-          onClick={() => onShowToast('Exporting data…')}
+          onClick={onExport || (() => onShowToast('Nothing to export here.'))}
           sx={{
             textTransform: 'none',
             fontSize: 12.5,
