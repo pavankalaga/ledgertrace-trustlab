@@ -242,7 +242,7 @@ const update = async (req, res) => {
 
 // ── Who may advance each stage ──────────────────────────────────────────
 // The approval chain, stage by stage:
-//   0 Invoice Received / Dept Justified → raising dept justifies it
+//   0 Invoice Received / Dept Justified → raising dept OR Accounts Payable
 //   1 Finance Verification              → Business Head approves
 //   2 CMD Approval                      → CMD approves
 //   3 Tally Entry                       → Business Head + Accounts Payable
@@ -285,7 +285,7 @@ const isRaisingDept = (u = {}) => RAISING_DEPTS.includes(norm(u.dept));
 const canAdvanceFrom = (user, stageIdx) => {
   if (isCMDUser(user)) return true;
   switch (stageIdx) {
-    case 0: return isRaisingDept(user);
+    case 0: return isRaisingDept(user) || isAPUser(user);
     case 1: return isBusinessHeadUser(user);
     case 3: return isBusinessHeadUser(user) || isAPUser(user);
     case 4: return isBusinessHeadUser(user);

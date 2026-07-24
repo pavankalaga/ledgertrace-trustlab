@@ -29,14 +29,14 @@ const RAISING_DEPTS = ['procurement', 'biomedical operations', 'csd',
 const isRaisingDept = (u = {}) => RAISING_DEPTS.includes(norm(u.dept));
 
 // Who may advance an invoice OUT of each stage:
-//   0 Dept Justified → raising dept   1 Finance Verification → Business Head
-//   2 CMD Approval   → CMD            3 Tally Entry → Business Head + AP
-//   4 Payment Queue  → Business Head  5 Payment Release → Admin / CMD
+//   0 Dept Justified → raising dept + AP   1 Finance Verification → Business Head
+//   2 CMD Approval   → CMD                 3 Tally Entry → Business Head + AP
+//   4 Payment Queue  → Business Head       5 Payment Release → Admin / CMD
 //   6 Payment Approved → Accounts Payable
 const canAdvanceFrom = (user, stageIdx) => {
   if (isCMDUser(user)) return true;
   switch (stageIdx) {
-    case 0: return isRaisingDept(user);
+    case 0: return isRaisingDept(user) || isAPUser(user);
     case 1: return isBusinessHeadUser(user);
     case 3: return isBusinessHeadUser(user) || isAPUser(user);
     case 4: return isBusinessHeadUser(user);
