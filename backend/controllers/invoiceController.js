@@ -1,4 +1,5 @@
 const Invoice = require('../models/Invoice');
+const User = require('../models/User');
 
 // Stage 0: Invoice Received / Dept Justified, 1: Finance Verification,
 // 2: CMD Approval, 3: Tally Entry, 4: Payment Queue,
@@ -239,7 +240,7 @@ const update = async (req, res) => {
   }
 };
 
-// Map user department to which stageIdx they can advance FROM.
+// ── Who may advance each stage ──────────────────────────────────────────
 // The approval chain, stage by stage:
 //   0 Invoice Received / Dept Justified → raising dept justifies it
 //   1 Finance Verification              → Business Head approves
@@ -249,19 +250,62 @@ const update = async (req, res) => {
 //   5 Payment Release                   → Admin / CMD approves the payment
 //   6 Payment Approved                  → Accounts Payable marks it Paid
 //   7 Paid                              → terminal
-const BUSINESS_HEAD = 'Business Head - Administration';
+//
+// Matching is LENIENT (normalise → lowercase, collapse whitespace, then
+// substring) so a stray space or "Business Head- Administration" vs
+// "Business Head - Administration" never locks a user out. The frontend
+// (src/components/shared/Drawer.js) mirrors this exact logic for the
+// enable/disable state — keep the two in sync.
+const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
+const isCMDUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('cmd') || r.includes('administrator') || r === 'admin'
+      || d.includes('cmd') || d.includes('management');
+};
+const isBusinessHeadUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('business head') || d.includes('business head');
+};
+const isAPUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('accountant') || r.includes('accounts payable')
+      || d.includes('accounts payable') || d.includes('accountant')
+      || r === 'ap' || d === 'ap';
+};
 // Departments that raise invoices — each may justify its own at stage 0.
 const RAISING_DEPTS = [
-  'Procurement', 'Biomedical Operations', 'CSD',
-  'Information Technology', 'Logistics', 'Facilities', 'Finance',
+  'procurement', 'biomedical operations', 'csd',
+  'information technology', 'logistics', 'facilities', 'finance',
 ];
+const isRaisingDept = (u = {}) => RAISING_DEPTS.includes(norm(u.dept));
 
-const deptCanAdvanceFrom = {
-  [BUSINESS_HEAD]:     [1, 3, 4],
-  'Accounts Payable':  [3, 6],
-  'CMD':               [2, 5],
-  ...Object.fromEntries(RAISING_DEPTS.map(d => [d, [0]])),
+// True if `user` may advance an invoice OUT of `stageIdx`. CMD/admin is a
+// global override (can advance any stage), which also covers stages 2 and 5.
+const canAdvanceFrom = (user, stageIdx) => {
+  if (isCMDUser(user)) return true;
+  switch (stageIdx) {
+    case 0: return isRaisingDept(user);
+    case 1: return isBusinessHeadUser(user);
+    case 3: return isBusinessHeadUser(user) || isAPUser(user);
+    case 4: return isBusinessHeadUser(user);
+    case 6: return isAPUser(user);
+    default: return false; // 2 & 5 are CMD/admin only (handled above)
+  }
+};
+
+// Older JWTs may predate the `dept` claim — fall back to the DB record so
+// role/dept checks stay accurate without forcing everyone to re-login.
+const resolveUser = async (req) => {
+  const u = req.user || {};
+  if (u.dept) return u;
+  if (!u.id) return u;
+  try {
+    const full = await User.findById(u.id).lean();
+    return { ...u, ...(full || {}) };
+  } catch {
+    return u;
+  }
 };
 
 // PUT /api/invoices/:id/advance — move invoice to next stage
@@ -271,18 +315,14 @@ const advanceStage = async (req, res) => {
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
     if (invoice.stageIdx >= 7) return res.status(400).json({ error: 'Invoice already completed' });
 
-    // Role-based check: CMD/Administrator can advance any stage, others only their own
-    const userRole = req.body.userRole || '';
-    const userDept = req.body.userDept || '';
-    const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userRole === 'admin' || userDept === 'CMD' || userDept === 'Management';
-
-    if (!isCMD) {
-      const allowedStages = deptCanAdvanceFrom[userDept] || [];
-      if (!allowedStages.includes(invoice.stageIdx)) {
-        return res.status(403).json({
-          error: `Your department (${userDept}) cannot advance invoices at the "${STAGE_LABELS[invoice.stageIdx]}" stage`
-        });
-      }
+    // Authorise from the verified JWT, NOT from the request body — trusting
+    // body.userRole let any signed-in user pass {userRole:'CMD'} and skip
+    // every gate. resolveUser backfills dept for older tokens.
+    const user = await resolveUser(req);
+    if (!canAdvanceFrom(user, invoice.stageIdx)) {
+      return res.status(403).json({
+        error: `Your department (${user.dept || '—'}) cannot advance invoices at the "${STAGE_LABELS[invoice.stageIdx]}" stage`
+      });
     }
 
     invoice.stageIdx += 1;

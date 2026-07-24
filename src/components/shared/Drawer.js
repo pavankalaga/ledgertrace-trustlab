@@ -2,6 +2,49 @@ import React from 'react';
 import { advanceInvoice, updateInvoice } from '../../api';
 import InlineEdit from './InlineEdit';
 
+// Lenient role/dept detection — mirrors canAdvanceFrom in
+// backend/controllers/invoiceController.js. Normalise (lowercase, collapse
+// whitespace) then substring-match so a stray space or "Business Head-
+// Administration" vs "Business Head - Administration" never disables a
+// button the backend would actually allow. This is only cosmetic gating;
+// the backend is the real enforcer.
+const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const isCMDUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('cmd') || r.includes('administrator') || r === 'admin'
+      || d.includes('cmd') || d.includes('management');
+};
+const isBusinessHeadUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('business head') || d.includes('business head');
+};
+const isAPUser = (u = {}) => {
+  const r = norm(u.role), d = norm(u.dept);
+  return r.includes('accountant') || r.includes('accounts payable')
+      || d.includes('accounts payable') || d.includes('accountant')
+      || r === 'ap' || d === 'ap';
+};
+const RAISING_DEPTS = ['procurement', 'biomedical operations', 'csd',
+  'information technology', 'logistics', 'facilities', 'finance'];
+const isRaisingDept = (u = {}) => RAISING_DEPTS.includes(norm(u.dept));
+
+// Who may advance an invoice OUT of each stage:
+//   0 Dept Justified → raising dept   1 Finance Verification → Business Head
+//   2 CMD Approval   → CMD            3 Tally Entry → Business Head + AP
+//   4 Payment Queue  → Business Head  5 Payment Release → Admin / CMD
+//   6 Payment Approved → Accounts Payable
+const canAdvanceFrom = (user, stageIdx) => {
+  if (isCMDUser(user)) return true;
+  switch (stageIdx) {
+    case 0: return isRaisingDept(user);
+    case 1: return isBusinessHeadUser(user);
+    case 3: return isBusinessHeadUser(user) || isAPUser(user);
+    case 4: return isBusinessHeadUser(user);
+    case 6: return isAPUser(user);
+    default: return false; // 2 & 5 are CMD/admin only (handled above)
+  }
+};
+
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
   if (!invoice || !stages.length) return null;
 
@@ -10,37 +53,17 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
   // with the pipeline header when the stages were renamed.
   const stageNames = stages.map(s => s.label);
 
-  // Role-based: determine if current user can advance from current stage
-  const userRole = user?.role || '';
-  const userDept = user?.dept || '';
-  const isCMD = userRole === 'CMD' || userRole === 'Administrator' || userRole === 'admin' || userDept === 'CMD' || userDept === 'Management';
-
-  // Keep in sync with deptCanAdvanceFrom in backend/controllers/invoiceController.js —
-  // this only greys out the button, the backend is what actually enforces it.
-  //   0 Dept Justified → raising dept   1 Finance Verification → Business Head
-  //   2 CMD Approval   → CMD            3 Tally Entry → Business Head + AP
-  //   4 Payment Queue  → Business Head  5 Payment Release → Admin / CMD
-  //   6 Payment Approved → Accounts Payable
-  const BUSINESS_HEAD = 'Business Head - Administration';
-  const RAISING_DEPTS = ['Procurement', 'Biomedical Operations', 'CSD',
-    'Information Technology', 'Logistics', 'Facilities', 'Finance'];
-
-  const deptCanAdvanceFrom = {
-    [BUSINESS_HEAD]:    [1, 3, 4],
-    'Accounts Payable': [3, 6],
-    'CMD':              [2, 5],
-    ...Object.fromEntries(RAISING_DEPTS.map(d => [d, [0]])),
-  };
-
-  const allowedStages = deptCanAdvanceFrom[userDept] || [];
-  const canAdvance = isCMD || allowedStages.includes(invoice.stageIdx);
+  // Can the current user advance this invoice from its current stage?
+  // canAdvanceFrom is defined at module scope and mirrors the backend.
+  const isCMD = isCMDUser(user);
+  const canAdvance = canAdvanceFrom(user, invoice.stageIdx);
   const isCompleted = invoice.stageIdx >= 7;
 
   // Edit permission:
   // Stage 0-2 (up to CMD Approval): Accounts Payable dept OR admin can edit
   // Stage 3 (Tally Entry): admin only
   // Stage 4+ (Payment Queue onward): no one can edit
-  const isAccountant = userDept === 'Accounts Payable';
+  const isAccountant = isAPUser(user);
   const canEdit =
     invoice.stageIdx <= 2 ? (isCMD || isAccountant) :
     invoice.stageIdx === 3 ? isCMD :
@@ -91,11 +114,12 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
 
   const handleAdvance = async () => {
     if (!canAdvance) {
-      onShowToast(`Your department (${userDept}) cannot advance invoices at this stage`);
+      onShowToast(`Your department (${user?.dept || '—'}) cannot advance invoices at this stage`);
       return;
     }
     try {
-      await advanceInvoice(invoice.id, { userRole, userDept });
+      // Authorisation is derived server-side from the JWT; no need to send role/dept.
+      await advanceInvoice(invoice.id);
       onRefresh();
       onClose();
       onShowToast(`✓ Stage advanced for ${invoice.id}`);
