@@ -87,6 +87,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
   const [branches, setBranches] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState(blankForm());
+  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -135,6 +136,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
       });
       setForm(blankForm());
       setEditing(null);
+      setShowForm(false); // collapse back to the list once saved
     } catch (err) {
       setError(err.message || 'Failed to submit');
     } finally {
@@ -142,8 +144,17 @@ const AdvancePayments = ({ user, onShowToast }) => {
     }
   };
 
+  const openNewForm = () => {
+    setEditing(null);
+    setForm(blankForm());
+    setError('');
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleEdit = (r) => {
     setEditing(r);
+    setShowForm(true);
     setForm({
       category: r.category, vendor: r.vendor, location: r.location,
       poNumber: r.poNumber || '', poDate: r.poDate || '',
@@ -159,6 +170,7 @@ const AdvancePayments = ({ user, onShowToast }) => {
     setEditing(null);
     setForm(blankForm());
     setError('');
+    setShowForm(false);
   };
 
   const handleDelete = async (id) => {
@@ -259,8 +271,13 @@ const AdvancePayments = ({ user, onShowToast }) => {
           <h2>Advance Payments</h2>
           <p>Request → AP approval → CMD final approval · 3-stage workflow</p>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
-          Signed in as <b>{user?.name || 'guest'}</b> · {isCMD(user) ? 'CMD' : isAP(user) ? 'AP' : (user?.role || 'requester')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+            Signed in as <b>{user?.name || 'guest'}</b> · {isCMD(user) ? 'CMD' : isAP(user) ? 'AP' : (user?.role || 'requester')}
+          </div>
+          {showForm
+            ? <button type="button" className="btn btn-ghost" onClick={handleCancel}>× Close Form</button>
+            : <button type="button" className="btn btn-primary" onClick={openNewForm}>+ New Payment Request</button>}
         </div>
       </div>
 
@@ -291,7 +308,8 @@ const AdvancePayments = ({ user, onShowToast }) => {
         </div>
       </div>
 
-      {/* Form */}
+      {/* Form — hidden until "New Payment Request" (or Edit) is clicked */}
+      {showForm && (
       <form className="card" style={{ padding: 22, marginBottom: 16 }} onSubmit={handleSubmit}>
         <div className="card-hd" style={{ padding: '0 0 14px', borderBottom: '1px solid var(--rule)', marginBottom: 18 }}>
           <div className="card-title">{editing ? `Edit Request — ${editing.advId}` : 'New Advance Payment Request'}</div>
@@ -359,10 +377,12 @@ const AdvancePayments = ({ user, onShowToast }) => {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--rule)' }}>
-          <button type="button" className="btn btn-ghost" onClick={handleCancel} disabled={saving}>Clear</button>
+          <button type="button" className="btn btn-ghost" onClick={() => { setEditing(null); setForm(blankForm()); setError(''); }} disabled={saving}>Clear</button>
+          <button type="button" className="btn btn-ghost" onClick={handleCancel} disabled={saving}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Submitting…' : (editing ? 'Update Request' : 'Submit Request')}</button>
         </div>
       </form>
+      )}
 
       {/* List */}
       <div className="card">
