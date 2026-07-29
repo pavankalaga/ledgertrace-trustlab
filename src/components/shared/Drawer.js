@@ -65,10 +65,27 @@ const fmtWhen = (e) => {
   });
 };
 
+// Role and dept are frequently the same string ("Business Head -
+// Administration"), or one contains the other — show the more specific of the
+// two rather than printing it twice.
+const designation = (role, dept) => {
+  const r = (role || '').trim(), d = (dept || '').trim();
+  if (!r) return d;
+  if (!d) return r;
+  // Compare on letters/digits only, so "Business Head -Administration" and
+  // "Business Head - Administration" count as the same string.
+  const key = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nr = key(r), nd = key(d);
+  if (nr === nd) return r;
+  if (nd.includes(nr)) return d;
+  if (nr.includes(nd)) return r;
+  return `${r} · ${d}`;
+};
+
 const actorLine = (e) => {
   if (e.legacy) return 'Actor not recorded (pre-audit-trail entry)';
   const who = e.userName || 'Unknown user';
-  const meta = [e.userRole, e.userDept].filter(Boolean).join(' · ');
+  const meta = designation(e.userRole, e.userDept);
   return meta ? `${who} — ${meta}` : who;
 };
 
