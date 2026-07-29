@@ -4,10 +4,10 @@ import { createInvoice, updateInvoice, checkInvoiceDuplicate } from '../../api';
 const DEPARTMENTS = ['Procurement', 'Accounts Payable', 'Finance', 'Logistics', 'Information Technology', 'CSD', 'Facilities', 'Biomedical Operations'];
 
 const TDS_SECTIONS = [
-  { value: '194S', label: '194S — Professionals' },
-  { value: '194J', label: '194J — Trainers' },
-  { value: '194I', label: '194I — Rentals' },
-  { value: '194C', label: '194C — Contracts' },
+  { value: '393(1)', label: '393(1) — Professionals' },
+  { value: '393(1)', label: '393(1) — Trainers' },
+  { value: '393(1)', label: '393(1) — Rentals' },
+  { value: '393(1)', label: '393(1) — Contracts' },
 ];
 const TDS_RATES = ['0', '1', '2', '10'];
 
