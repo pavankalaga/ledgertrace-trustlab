@@ -69,6 +69,7 @@ export const firebaseLoginApi = async (idToken) => {
 // GET
 export const getInvoices = () => fetchApi('/invoices');
 export const getInvoice = (id) => fetchApi(`/invoices/${id}`);
+export const getInvoiceAudit = (id) => fetchApi(`/invoices/${id}/audit`);
 export const getSuppliers = () => fetchApi('/suppliers');
 export const getUsers = () => fetchApi('/users');
 export const getPaymentHistory = () => fetchApi('/payments/history');

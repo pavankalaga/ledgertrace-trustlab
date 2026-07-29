@@ -1,5 +1,5 @@
-import React from 'react';
-import { advanceInvoice, updateInvoice } from '../../api';
+import React, { useState, useEffect } from 'react';
+import { advanceInvoice, updateInvoice, getInvoiceAudit } from '../../api';
 import InlineEdit from './InlineEdit';
 
 // Lenient role/dept detection — mirrors canAdvanceFrom in
@@ -45,7 +45,56 @@ const canAdvanceFrom = (user, stageIdx) => {
   }
 };
 
+// One audit row's icon + accent, by action type.
+const AUDIT_LOOK = {
+  created:   { icon: '＋', color: 'var(--s1)' },
+  advanced:  { icon: '→',  color: 'var(--teal-700)' },
+  updated:   { icon: '✎',  color: 'var(--gold)' },
+  justified: { icon: '❝',  color: 'var(--s2)' },
+};
+
+// Recorded entries carry a real timestamp; pre-audit-trail rows only have the
+// day/month string that was stored in dates[].
+const fmtWhen = (e) => {
+  if (!e.at) return e.dateText || '—';
+  const d = new Date(e.at);
+  if (isNaN(d)) return e.dateText || '—';
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+};
+
+const actorLine = (e) => {
+  if (e.legacy) return 'Actor not recorded (pre-audit-trail entry)';
+  const who = e.userName || 'Unknown user';
+  const meta = [e.userRole, e.userDept].filter(Boolean).join(' · ');
+  return meta ? `${who} — ${meta}` : who;
+};
+
 const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOpenEdit, user }) => {
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [audit, setAudit] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState('');
+
+  // Drop a stale trail when the drawer switches to another invoice.
+  const invoiceId = invoice?.id;
+  useEffect(() => { setAuditOpen(false); setAudit(null); setAuditError(''); }, [invoiceId]);
+
+  const openAudit = async () => {
+    setAuditOpen(true);
+    setAuditLoading(true);
+    setAuditError('');
+    try {
+      setAudit(await getInvoiceAudit(invoiceId));
+    } catch (err) {
+      setAuditError(err.message || 'Failed to load audit trail');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   if (!invoice || !stages.length) return null;
 
   // Read the names off /api/stages rather than keeping a second hardcoded
@@ -184,7 +233,17 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
             </div>
           </div>
           <div className="drawer-sec">
-            <div className="dsec-label">Lifecycle Timeline</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="dsec-label">Lifecycle Timeline</div>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ marginBottom: 10 }}
+                onClick={openAudit}
+                title="Who moved this invoice, and when"
+              >
+                🕘 Audit Trail
+              </button>
+            </div>
             {stageNames.map((name, i) => {
               const done = i < invoice.stageIdx;
               const active = i === invoice.stageIdx;
@@ -251,6 +310,76 @@ const Drawer = ({ invoice, stages, isOpen, onClose, onShowToast, onRefresh, onOp
           )}
         </div>
       </div>
+
+      {/* Audit trail — sits above the drawer (modal z-index 300 vs drawer 200) */}
+      {auditOpen && (
+        <div className="modal-back open" onClick={() => setAuditOpen(false)}>
+          <div className="modal" style={{ width: 560, maxHeight: '82vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-hd">
+              <div>
+                <div className="modal-title">Audit Trail — {invoice.id}</div>
+                <div className="modal-sub">
+                  {invoice.supplier} · currently at <b>{stageNames[invoice.stageIdx] || '—'}</b>
+                </div>
+              </div>
+              <button type="button" className="drawer-close" onClick={() => setAuditOpen(false)}>×</button>
+            </div>
+
+            <div className="modal-body" style={{ overflowY: 'auto' }}>
+              {auditLoading && <div style={{ padding: 20, color: 'var(--ink4)', fontSize: 13 }}>Loading…</div>}
+              {auditError && <div className="lr-error">{auditError}</div>}
+
+              {!auditLoading && !auditError && audit && (
+                audit.entries.length === 0 ? (
+                  <div style={{ padding: 20, color: 'var(--ink4)', fontSize: 13 }}>No recorded activity yet.</div>
+                ) : (
+                  audit.entries.map((e, i) => {
+                    const look = AUDIT_LOOK[e.action] || AUDIT_LOOK.advanced;
+                    const isLast = i === audit.entries.length - 1;
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: isLast ? 0 : 14 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <div style={{
+                            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                            border: `1.5px solid ${e.legacy ? 'var(--rule)' : look.color}`,
+                            color: e.legacy ? 'var(--ink4)' : look.color,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 700, background: 'var(--white)',
+                          }}>{look.icon}</div>
+                          {!isLast && <div style={{ flex: 1, width: 1, background: 'var(--rule)', minHeight: 18 }} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: e.legacy ? 'var(--ink3)' : 'var(--ink)' }}>
+                            {e.label}
+                          </div>
+                          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: 'var(--ink4)', marginTop: 2 }}>
+                            {fmtWhen(e)}
+                          </div>
+                          <div style={{ fontSize: 12, color: e.legacy ? 'var(--ink4)' : 'var(--ink2)', marginTop: 3, fontStyle: e.legacy ? 'italic' : 'normal' }}>
+                            {actorLine(e)}
+                          </div>
+                          {e.details && (
+                            <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 3, wordBreak: 'break-word' }}>
+                              {e.details}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              )}
+            </div>
+
+            <div className="modal-ft">
+              <span style={{ flex: 1, fontSize: 11, color: 'var(--ink4)' }}>
+                {audit ? `${audit.entries.length} event${audit.entries.length === 1 ? '' : 's'}` : ''}
+              </span>
+              <button type="button" className="btn btn-ghost" onClick={() => setAuditOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

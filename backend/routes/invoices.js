@@ -1,16 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const Invoice = require('../models/Invoice');
-const { create, bulkCreate, update, advanceStage, checkDuplicate } = require('../controllers/invoiceController');
+const { create, bulkCreate, update, advanceStage, checkDuplicate, getAuditTrail } = require('../controllers/invoiceController');
 
-// GET /api/invoices — return all invoices
+// GET /api/invoices — return all invoices. The audit trail is excluded: it
+// grows unbounded and the list view never reads it (see /:id/audit).
 router.get('/', async (req, res) => {
-  const invoices = await Invoice.find().sort({ createdAt: -1 });
+  const invoices = await Invoice.find({}, { auditTrail: 0 }).sort({ createdAt: -1 });
   res.json(invoices);
 });
 
 // GET /api/invoices/check-duplicate — must come before /:id so it isn't captured as an id
 router.get('/check-duplicate', checkDuplicate);
+
+// GET /api/invoices/:id/audit — chain of custody for one invoice
+router.get('/:id/audit', getAuditTrail);
 
 // GET /api/invoices/:id — return one invoice
 router.get('/:id', async (req, res) => {

@@ -30,9 +30,32 @@ const STAGE_LABELS = [
   'Tally Entry', 'Payment Queue', 'Payment Release', 'Payment Approved', 'Paid',
 ];
 
+// ── Audit trail ─────────────────────────────────────────────────────────
+// Every mutation appends one entry; entries are never edited or removed.
+// The acting user comes from the verified JWT (req.user), never the body.
+const auditActor = (user = {}) => ({
+  userId:   user.id ? String(user.id) : '',
+  userName: user.name || 'Unknown user',
+  userRole: user.role || '',
+  userDept: user.dept || '',
+});
+
+const auditEntry = (user, fields) => ({
+  ...auditActor(user),
+  at: new Date(),
+  ...fields,
+});
+
+// Fields that change constantly or carry no audit value — excluded from the
+// "what changed" summary so an edit doesn't log noise.
+const AUDIT_IGNORED_FIELDS = new Set([
+  '_id', 'id', '__v', 'auditTrail', 'createdAt', 'updatedAt',
+  'dates', 'nextAction', 'stageIdx', 'dueType',
+]);
+
 // Build the full Invoice document from user input + a pre-assigned id.
 // Shared by single create and bulk create so both go through identical logic.
-const buildInvoicePayload = (input, id) => {
+const buildInvoicePayload = (input, id, user) => {
   const receivedBy = input.receivedBy || 'Procurement';
   const startStageIdx = START_STAGE_IDX;
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -72,6 +95,14 @@ const buildInvoicePayload = (input, id) => {
     urgency: 'normal',
     nextAction: actions[startStageIdx] || 'Send for Finance Verification',
     dueType: 'ok',
+    auditTrail: [auditEntry(user, {
+      action: 'created',
+      label: `Invoice created — received by ${receivedBy}`,
+      details: input.invno ? `Supplier invoice no. ${input.invno}` : '',
+      fromStage: null,
+      toStage: startStageIdx,
+      stageLabel: STAGE_LABELS[startStageIdx],
+    })],
   };
 };
 
@@ -100,7 +131,7 @@ const isDuplicateKey = (err) =>
 // the saved doc, or throws the last non-collision error (e.g. schema validation).
 // Pre-checks Invoice.exists({ id }) each attempt so we skip occupied IDs instead
 // of relying purely on the E11000 retry — this handles stale-max reads too.
-const createWithUniqueId = async (input, seedNum) => {
+const createWithUniqueId = async (input, seedNum, user) => {
   let nextNum = seedNum;
   let lastErr = null;
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -112,7 +143,7 @@ const createWithUniqueId = async (input, seedNum) => {
       continue;
     }
     try {
-      const payload = buildInvoicePayload(input, id);
+      const payload = buildInvoicePayload(input, id, user);
       const saved = await Invoice.create(payload);
       console.log(`[invoice] created ${id}`);
       return { invoice: saved, nextNum: nextNum + 1 };
@@ -172,7 +203,7 @@ const create = async (req, res) => {
       });
     }
     const seed = (await getMaxInvoiceNum()) + 1;
-    const { invoice } = await createWithUniqueId(req.body, seed);
+    const { invoice } = await createWithUniqueId(req.body, seed, await resolveUser(req));
     res.status(201).json(invoice);
   } catch (err) {
     console.error('Create invoice error:', err.message, err.code || '', err.errors || '');
@@ -193,6 +224,7 @@ const bulkCreate = async (req, res) => {
     if (rows.length > 500) return res.status(400).json({ error: 'Max 500 invoices per bulk upload' });
 
     let nextNum = (await getMaxInvoiceNum()) + 1;
+    const uploader = await resolveUser(req);
     const results = { total: rows.length, succeeded: 0, failed: [], createdIds: [] };
 
     for (let i = 0; i < rows.length; i++) {
@@ -205,7 +237,7 @@ const bulkCreate = async (req, res) => {
         if (dup) {
           throw new Error(`Duplicate: Invoice No. "${dup.invno}" already exists for supplier "${dup.supplier}" (${dup.id})`);
         }
-        const { invoice, nextNum: advanced } = await createWithUniqueId(raw, nextNum);
+        const { invoice, nextNum: advanced } = await createWithUniqueId(raw, nextNum, uploader);
         nextNum = advanced;
         results.succeeded += 1;
         results.createdIds.push(invoice.id);
@@ -231,8 +263,35 @@ const bulkCreate = async (req, res) => {
 // PUT /api/invoices/:id — update any fields
 const update = async (req, res) => {
   try {
-    const invoice = await Invoice.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    const invoice = await Invoice.findOne({ id: req.params.id });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    // Never let a client rewrite identity or the audit trail itself.
+    const patch = { ...req.body };
+    delete patch._id; delete patch.id; delete patch.__v; delete patch.auditTrail;
+
+    invoice.set(patch);
+    const changed = invoice.modifiedPaths()
+      .map(p => p.split('.')[0])
+      .filter(p => !AUDIT_IGNORED_FIELDS.has(p));
+    const uniqueChanged = [...new Set(changed)];
+
+    if (uniqueChanged.length) {
+      const user = await resolveUser(req);
+      const justifiedOnly = uniqueChanged.length === 1 && uniqueChanged[0] === 'deptJustification';
+      invoice.auditTrail.push(auditEntry(user, {
+        action: justifiedOnly ? 'justified' : 'updated',
+        label: justifiedOnly ? 'Department justification updated' : 'Invoice details edited',
+        details: justifiedOnly
+          ? String(patch.deptJustification || '').slice(0, 300)
+          : `Changed: ${uniqueChanged.slice(0, 8).join(', ')}${uniqueChanged.length > 8 ? '…' : ''}`,
+        fromStage: invoice.stageIdx,
+        toStage: invoice.stageIdx,
+        stageLabel: STAGE_LABELS[invoice.stageIdx] || '',
+      }));
+    }
+
+    await invoice.save();
     res.json(invoice);
   } catch (err) {
     console.error('Update invoice error:', err.message);
@@ -325,10 +384,27 @@ const advanceStage = async (req, res) => {
       });
     }
 
+    const fromStage = invoice.stageIdx;
     invoice.stageIdx += 1;
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
     invoice.dates[invoice.stageIdx] = today;
     invoice.nextAction = actions[invoice.stageIdx] || 'Completed';
+
+    // Stamp the approval chain with who signed off, so the drawer's
+    // "Approval Chain" block reflects the same person as the audit trail.
+    const actor = user.name || 'Unknown user';
+    if (fromStage === 1) invoice.fin = actor;
+    if (fromStage === 2) invoice.cmd = actor;
+    if (fromStage === 5) invoice.pmtauth = actor;
+
+    invoice.auditTrail.push(auditEntry(user, {
+      action: 'advanced',
+      label: `Advanced to ${STAGE_LABELS[invoice.stageIdx]}`,
+      details: `From ${STAGE_LABELS[fromStage]} · action: ${actions[fromStage] || '—'}`,
+      fromStage,
+      toStage: invoice.stageIdx,
+      stageLabel: STAGE_LABELS[invoice.stageIdx],
+    }));
 
     await invoice.save();
     res.json(invoice);
@@ -338,4 +414,55 @@ const advanceStage = async (req, res) => {
   }
 };
 
-module.exports = { create, bulkCreate, update, advanceStage, checkDuplicate };
+// GET /api/invoices/:id/audit — full chain of custody for one invoice.
+//
+// Invoices that pre-date the audit trail have no stored entries, so any stage
+// that carries a date in `dates[]` but no matching entry is returned as a
+// "legacy" row: the stage and its date are known, the actor is not. Legacy
+// rows always precede recorded ones — every stored entry was written after
+// the feature shipped.
+const getAuditTrail = async (req, res) => {
+  try {
+    const invoice = await Invoice.findOne({ id: req.params.id }).lean();
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const stored = (invoice.auditTrail || [])
+      .map(e => ({ ...e, legacy: false }))
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+
+    const covered = new Set(
+      stored.filter(e => e.toStage !== null && e.toStage !== undefined && e.action !== 'updated' && e.action !== 'justified')
+            .map(e => e.toStage)
+    );
+
+    const legacy = [];
+    (invoice.dates || []).forEach((d, i) => {
+      if (!d || d === '—' || covered.has(i)) return;
+      legacy.push({
+        action: i === 0 ? 'created' : 'advanced',
+        label: i === 0 ? 'Invoice received' : `Advanced to ${STAGE_LABELS[i]}`,
+        details: '',
+        fromStage: i === 0 ? null : i - 1,
+        toStage: i,
+        stageLabel: STAGE_LABELS[i] || '',
+        dateText: d,           // only a day/month string survives on old rows
+        at: null,
+        userName: '', userRole: '', userDept: '', userId: '',
+        legacy: true,
+      });
+    });
+
+    res.json({
+      invoiceId: invoice.id,
+      supplier: invoice.supplier,
+      currentStage: invoice.stageIdx,
+      currentStageLabel: STAGE_LABELS[invoice.stageIdx] || '',
+      entries: [...legacy, ...stored],
+    });
+  } catch (err) {
+    console.error('Audit trail error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+module.exports = { create, bulkCreate, update, advanceStage, checkDuplicate, getAuditTrail };
