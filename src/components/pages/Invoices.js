@@ -10,7 +10,7 @@ import BulkInvoiceUpload from '../shared/BulkInvoiceUpload';
 // real numbers so they stay sortable/summable in Excel. Exports the full
 // filtered set — every page, not just the 15 currently visible.
 const EXPORT_HEADERS = [
-  'Invoice ID', 'Supplier', 'GSTIN', 'Department', 'Invoice Date',
+  'Invoice ID', 'Supplier', 'Supplier Invoice No.', 'Department', 'Invoice Date',
   'Current Stage', 'Base Amount', 'Total (incl. GST)', 'Due Date',
 ];
 
@@ -18,7 +18,7 @@ const exportInvoicesToExcel = ({ list, stages, dateFrom, dateTo }) => {
   const rows = list.map(inv => [
     inv.id || '',
     inv.supplier || '',
-    inv.gstin || '',
+    inv.invno || '',
     inv.dept || '',
     inv.invdate || '',
     (stages[inv.stageIdx] && stages[inv.stageIdx].label) || '',
@@ -29,7 +29,7 @@ const exportInvoicesToExcel = ({ list, stages, dateFrom, dateTo }) => {
 
   const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
   ws['!cols'] = [
-    { wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 20 }, { wch: 13 },
+    { wch: 14 }, { wch: 34 }, { wch: 20 }, { wch: 20 }, { wch: 13 },
     { wch: 24 }, { wch: 15 }, { wch: 17 }, { wch: 13 },
   ];
   // Indian-format the two amount columns (G, H) on the data rows.
@@ -314,6 +314,7 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh, onRe
             <tr>
               <th>Invoice ID</th>
               <th>Supplier</th>
+              <th>Supplier Invoice No.</th>
               <th>Department</th>
               <th>Invoice Date</th>
               <th>Current Stage</th>
@@ -328,6 +329,7 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh, onRe
               <tr key={inv.id} onClick={() => onOpenDrawer(inv.id)} style={{ cursor: 'pointer' }}>
                 <td><div className="td-mono" style={{ color: 'var(--coral)' }}>{inv.id}</div></td>
                 <td><div className="td-bold" style={{ fontSize: '13px' }}>{inv.supplier}</div><div style={{ fontSize: '10px', color: 'var(--ink4)', fontFamily: "'JetBrains Mono',monospace" }}>{inv.gstin}</div></td>
+                <td><span className="td-mono" style={{ fontSize: '11px' }}>{inv.invno || '—'}</span></td>
                 <td><span style={{ fontSize: '12px', color: 'var(--ink3)' }}>{inv.dept || '—'}</span></td>
                 <td><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '11px' }}>{inv.invdate}</span></td>
                 <td><StagePill stages={stages} stageIdx={inv.stageIdx} /></td>
@@ -338,7 +340,7 @@ const Invoices = ({ invoices, stages, onOpenDrawer, onShowToast, onRefresh, onRe
               </tr>
             ))}
             {paged.length === 0 && (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: 32, color: 'var(--ink4)' }}>No invoices found for selected range</td></tr>
+              <tr><td colSpan="10" style={{ textAlign: 'center', padding: 32, color: 'var(--ink4)' }}>No invoices found for selected range</td></tr>
             )}
           </tbody>
         </table>
