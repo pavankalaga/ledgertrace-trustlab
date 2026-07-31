@@ -1,4 +1,25 @@
 require('dotenv').config();
+
+// AWS SDK v3 (@smithy/core) generates idempotency tokens via
+// require('node:crypto').getRandomValues — added in Node 17.4 — and falls back
+// to a global `crypto.randomUUID`, which only exists from Node 19. On older
+// runtimes every S3 call dies with "getRandomValues is not a function", which
+// surfaced as an unopenable MLD document. webcrypto has been available since
+// Node 15, so publish it globally before anything requires the SDK. No-op on
+// Node 19+. Remove once every deployment target is on a modern Node.
+{
+  const nodeCrypto = require('crypto');
+  const wc = nodeCrypto.webcrypto;
+  if (wc) {
+    if (!globalThis.crypto) globalThis.crypto = wc;
+    // require('node:crypto') hands back this same object, so adding the
+    // missing export is enough for the SDK's destructuring import to see it.
+    if (typeof nodeCrypto.getRandomValues !== 'function') {
+      nodeCrypto.getRandomValues = wc.getRandomValues.bind(wc);
+    }
+  }
+}
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');

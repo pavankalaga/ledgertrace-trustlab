@@ -557,10 +557,16 @@ export default function MLD({ user }) {
                   {filtered.map(d => (
                     <tr key={d.id} style={{ borderBottom: `1px solid ${LINE}` }}>
                       {/* Reference No. doubles as the open-viewer control now
-                          that the dedicated View column is gone. */}
+                          that the dedicated View column is gone. It opens
+                          whichever copy exists — many rows carry only a master
+                          file, and defaulting to 'controlled' showed a
+                          misleading "no file attached" panel. */}
                       <td style={tdStyle}>
                         <button
-                          onClick={() => { setViewerId(d.id); setViewerWhich('controlled'); }}
+                          onClick={() => {
+                            setViewerId(d.id);
+                            setViewerWhich(!(d.cfile || d.file) && d.mfile ? 'master' : 'controlled');
+                          }}
                           title="Open viewer"
                           style={refBtn}
                         >{d.ref || '(reference pending)'}</button>
