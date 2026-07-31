@@ -205,19 +205,29 @@ export const fetchMldFileBlob = async (id, which = 'controlled') => {
     headers: { ...getAuthHeaders() },
   });
   if (res.status === 401) { handleUnauthorized(res); return null; }
-  if (!res.ok) throw new Error(`MLD file fetch failed: ${res.status}`);
+  if (!res.ok) {
+    // These endpoints answer with plain text ("File not found in storage."),
+    // so surface that instead of a bare status code — the viewer prints it.
+    const detail = await res.text().catch(() => '');
+    throw new Error(detail.trim() || `MLD file fetch failed (HTTP ${res.status})`);
+  }
   const blob = await res.blob();
   return { blob, url: URL.createObjectURL(blob), mime: blob.type };
 };
-// Download endpoint returns a 302 to a presigned S3 URL that carries
-// Content-Disposition: attachment — we fetch it to follow the redirect
-// with the auth header, then hand the returned Blob to the browser.
+// Download goes through the same same-origin /file proxy rather than the
+// /download endpoint: the latter 302s to a presigned S3 URL, and reading
+// that response from JS needs a CORS policy on the bucket that we can't
+// count on. The proxy already streams the bytes, so we just relabel the
+// blob with a friendly filename on the client.
 export const downloadMldFile = async (id, filename, which = 'controlled') => {
-  const res = await fetch(`${API_BASE}/mld/${id}/download?which=${encodeURIComponent(which)}`, {
+  const res = await fetch(`${API_BASE}/mld/${id}/file?which=${encodeURIComponent(which)}`, {
     headers: { ...getAuthHeaders() },
   });
   if (res.status === 401) { handleUnauthorized(res); return; }
-  if (!res.ok) throw new Error(`MLD download failed: ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(detail.trim() || `MLD download failed (HTTP ${res.status})`);
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

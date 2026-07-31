@@ -32,6 +32,22 @@ const LINE     = 'rgba(0, 105, 92, 0.12)';
 
 const OFFICE_EXTS = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
 const IMG_EXTS    = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
+// Types the browser will happily render inside an <iframe> from a blob URL.
+// Anything outside this list (zip, exe, unknown) would just trigger a save
+// dialog, so those get the "no inline preview" card instead.
+const TEXT_EXTS   = new Set(['txt', 'log', 'csv', 'json', 'xml', 'html', 'htm', 'md']);
+
+/**
+ * Extension of an S3 key / file path. Ignores any query string and only
+ * looks at the last path segment, so "mld/2026.07/report" correctly yields
+ * '' rather than "07/report" — the old naive split('.').pop() produced a
+ * junk extension for those keys and the viewer then rendered nothing.
+ */
+function extOf(p) {
+  const base = String(p || '').split(/[?#]/)[0].split(/[\\/]/).pop();
+  const i = base.lastIndexOf('.');
+  return i > 0 ? base.slice(i + 1).toLowerCase() : '';
+}
 
 // ────────────────────────────────────────────────────────────────
 // Small building blocks
@@ -69,8 +85,8 @@ const NablBadge = ({ v }) => {
 function DocViewer({ id, initialWhich, onClose, isAdmin }) {
   const [state, setState] = useState({ loading: true, err: null, doc: null, meta: null });
   const [which, setWhich] = useState(initialWhich || 'controlled');
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [previewMime, setPreviewMime] = useState('');
+  // status: 'idle' (nothing to fetch) | 'loading' | 'ready' | 'error'
+  const [file, setFile] = useState({ status: 'idle', url: null, mime: '', err: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -81,31 +97,46 @@ function DocViewer({ id, initialWhich, onClose, isAdmin }) {
     return () => { cancelled = true; };
   }, [id, which]);
 
-  // Fetch the file as a Blob so we can preview inline without hitting
-  // Chrome's "Download PDFs" preference. Only run when we know it's an
-  // image or PDF; office docs are handled via the Office Online viewer
-  // using the presigned URL from the server.
+  // Work out what kind of file we're dealing with before any early return,
+  // because the blob effect below is a hook and can't sit behind one.
+  const meta    = state.meta;
+  const rawPath = meta && meta.raw
+    ? (which === 'master' ? meta.raw.master_file : (meta.raw.controlled_file || meta.raw.attached_file))
+    : null;
+  const ext      = extOf(rawPath);
+  const isImg    = !!rawPath && IMG_EXTS.has(ext);
+  const isPdf    = !!rawPath && ext === 'pdf';
+  const isOffice = !!rawPath && OFFICE_EXTS.has(ext);
+  const useOfficeViewer = isOffice && !!(meta && meta.signedUrl);
+
+  // Fetch the file as a Blob because /api/mld/:id/file needs a Bearer token
+  // that a plain <img>/<iframe> src can't send. Office documents are the one
+  // exception — Microsoft's viewer pulls the presigned URL itself, so there's
+  // no point dragging those bytes through the browser.
+  const needsBlob = !!(meta && meta.hasFile) && !useOfficeViewer;
+
   useEffect(() => {
-    if (!state.meta || !state.meta.hasFile) { setPreviewUrl(null); return; }
-    const path = state.meta.raw && (which === 'master' ? state.meta.raw.master_file : (state.meta.raw.controlled_file || state.meta.raw.attached_file));
-    const ext = (path || '').split('.').pop().toLowerCase();
-    if (!IMG_EXTS.has(ext) && ext !== 'pdf') { setPreviewUrl(null); return; }
+    if (!needsBlob) { setFile({ status: 'idle', url: null, mime: '', err: null }); return; }
 
     let cancelled = false;
     let created = null;
+    setFile({ status: 'loading', url: null, mime: '', err: null });
     fetchMldFileBlob(id, which)
       .then(res => {
-        if (cancelled || !res) return;
+        if (!res) return;                       // 401 — the api layer redirects
+        if (cancelled) { URL.revokeObjectURL(res.url); return; }
         created = res.url;
-        setPreviewUrl(res.url);
-        setPreviewMime(res.mime);
+        setFile({ status: 'ready', url: res.url, mime: res.mime, err: null });
       })
-      .catch(err => console.warn('[MLD] file preview failed:', err.message));
+      .catch(err => {
+        console.warn('[MLD] file preview failed:', err.message);
+        if (!cancelled) setFile({ status: 'error', url: null, mime: '', err: err.message });
+      });
     return () => {
       cancelled = true;
       if (created) URL.revokeObjectURL(created);
     };
-  }, [state.meta, id, which]);
+  }, [needsBlob, id, which]);
 
   if (state.loading) {
     return (
@@ -125,18 +156,23 @@ function DocViewer({ id, initialWhich, onClose, isAdmin }) {
     );
   }
 
-  const { doc, meta } = state;
+  const { doc } = state;
   const raw = meta.raw;
-  const path = which === 'master' ? raw.master_file : (raw.controlled_file || raw.attached_file);
-  const ext = String(path || '').split('.').pop().toLowerCase();
-  const isImg = path && IMG_EXTS.has(ext);
-  const isPdf = path && (ext === 'pdf' || /\.pdf/i.test(path));
-  const isOffice = path && OFFICE_EXTS.has(ext);
   const bothExist = raw.master_file && raw.controlled_file;
+  // Text-ish files render fine in an iframe; binaries would only trigger a
+  // save dialog, so they fall through to the download card.
+  const isText = !!rawPath && (
+    TEXT_EXTS.has(ext) || /^text\//.test(file.mime) ||
+    file.mime === 'application/json' || file.mime === 'application/xml'
+  );
+  // The "Open" link prefers the blob (same bytes we're previewing); Office
+  // documents only ever have the presigned URL.
+  const openUrl = file.url || meta.signedUrl || null;
 
   const handleDownload = () => {
     const base = (raw.reference_no || raw.document_name || 'document').toString().replace(/[\\/]/g, '_');
-    downloadMldFile(id, `${base}_${which}${ext ? '.' + ext : ''}`, which);
+    downloadMldFile(id, `${base}_${which}${ext ? '.' + ext : ''}`, which)
+      .catch(err => window.alert(`Download failed: ${err.message}`));
   };
 
   return (
@@ -163,7 +199,7 @@ function DocViewer({ id, initialWhich, onClose, isAdmin }) {
             {meta.hasFile && (
               <>
                 <button onClick={handleDownload} style={actionBtn}>⬇ Download</button>
-                {previewUrl && <a href={previewUrl} target="_blank" rel="noopener noreferrer" style={{ ...actionBtn, textDecoration: 'none' }}>↗ Open</a>}
+                {openUrl && <a href={openUrl} target="_blank" rel="noopener noreferrer" style={{ ...actionBtn, textDecoration: 'none' }}>↗ Open</a>}
               </>
             )}
           </div>
@@ -172,41 +208,80 @@ function DocViewer({ id, initialWhich, onClose, isAdmin }) {
         {/* body — preview + sidebar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 14, padding: 14, background: '#f5f7f6', overflow: 'auto', minHeight: 0, flex: 1 }}>
           {/* preview */}
+          {/* Every branch below ends in something visible — an earlier version
+              rendered nothing at all when the blob fetch failed or when an
+              Office file had no presigned URL, which showed up as a blank
+              black panel. */}
           <div style={{ background: '#1f2933', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '55vh' }}>
-            {!meta.hasFile && (
+            {!meta.hasFile ? (
               <div style={emptyStyle}>
-                <div style={{ fontSize: 40, color: GOLD }}>📎</div>
-                <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>No file attached</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>The {which} copy has not been uploaded for this document in DOMAS.</div>
-              </div>
-            )}
-            {meta.hasFile && isImg && previewUrl && (
-              <div style={{ display: 'grid', placeItems: 'center', flex: 1, padding: 24 }}>
-                <img src={previewUrl} alt={doc.name} style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, boxShadow: '0 14px 30px rgba(0,0,0,0.4)' }} />
-              </div>
-            )}
-            {meta.hasFile && isPdf && previewUrl && (
-              <object data={previewUrl} type={previewMime || 'application/pdf'} style={{ flex: 1, width: '100%', minHeight: '75vh', border: 0 }}>
-                <div style={emptyStyle}>
-                  <div>Your browser can't preview PDFs inline. <a href={previewUrl} target="_blank" rel="noopener noreferrer" style={{ color: GOLD }}>Open in a new tab</a>.</div>
+                <div>
+                  <div style={{ fontSize: 40, color: GOLD }}>📎</div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>No file attached</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>The {which} copy has not been uploaded for this document in DOMAS.</div>
                 </div>
-              </object>
-            )}
-            {meta.hasFile && isOffice && meta.signedUrl && (
-              <iframe
-                title={doc.name}
-                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(meta.signedUrl)}`}
-                style={{ flex: 1, width: '100%', minHeight: '75vh', border: 0, background: '#fff' }}
-                allow="fullscreen"
-                referrerPolicy="no-referrer"
-              />
-            )}
-            {meta.hasFile && !isImg && !isPdf && !isOffice && (
+              </div>
+            ) : file.status === 'loading' ? (
               <div style={emptyStyle}>
-                <div style={{ fontSize: 40, color: GOLD }}>📄</div>
-                <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>{(ext || 'File').toUpperCase()} preview</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>Inline preview isn't available for this file type. Use Download to save a copy.</div>
-                <button onClick={handleDownload} style={{ ...actionBtn, marginTop: 14, background: GOLD, color: TEAL_900 }}>Download</button>
+                <div>
+                  <div style={{ fontSize: 40, color: GOLD }}>⏳</div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>Loading document…</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>Fetching the {ext ? ext.toUpperCase() : ''} file from secure storage.</div>
+                </div>
+              </div>
+            ) : file.status === 'error' ? (
+              <div style={emptyStyle}>
+                <div>
+                  <div style={{ fontSize: 40, color: '#FF8A80' }}>⚠</div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>Couldn't load the file</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6, maxWidth: 460 }}>
+                    {file.err || 'The storage request failed.'} The document record loaded fine, so this is a storage
+                    problem — check the MLD_AWS_* settings on the server, or that <code style={{ color: GOLD }}>{String(rawPath || '')}</code> still exists in the bucket.
+                  </div>
+                  <button onClick={handleDownload} style={{ ...actionBtn, marginTop: 14, background: GOLD, color: TEAL_900 }}>Try download instead</button>
+                </div>
+              </div>
+            ) : isImg && file.url ? (
+              <div style={{ display: 'grid', placeItems: 'center', flex: 1, padding: 24 }}>
+                <img src={file.url} alt={doc.name} style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, boxShadow: '0 14px 30px rgba(0,0,0,0.4)' }} />
+              </div>
+            ) : isPdf && file.url ? (
+              <>
+                <object data={file.url} type={file.mime || 'application/pdf'} style={{ flex: 1, width: '100%', minHeight: '70vh', border: 0 }}>
+                  {/* Fallback content — shown by the browser when it has no
+                      inline PDF renderer (or the "download PDFs" pref is on). */}
+                  <iframe title={doc.name} src={file.url} style={{ width: '100%', height: '70vh', border: 0, background: '#fff' }} />
+                </object>
+                <PreviewHint url={file.url} onDownload={handleDownload} />
+              </>
+            ) : useOfficeViewer ? (
+              <>
+                <iframe
+                  title={doc.name}
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(meta.signedUrl)}`}
+                  style={{ flex: 1, width: '100%', minHeight: '70vh', border: 0, background: '#fff' }}
+                  allow="fullscreen"
+                  referrerPolicy="no-referrer"
+                />
+                <PreviewHint url={meta.signedUrl} onDownload={handleDownload} />
+              </>
+            ) : isText && file.url ? (
+              <>
+                <iframe title={doc.name} src={file.url} style={{ flex: 1, width: '100%', minHeight: '70vh', border: 0, background: '#fff' }} />
+                <PreviewHint url={file.url} onDownload={handleDownload} />
+              </>
+            ) : (
+              <div style={emptyStyle}>
+                <div>
+                  <div style={{ fontSize: 40, color: GOLD }}>📄</div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 18, marginTop: 8 }}>{(ext || 'File').toUpperCase()} preview</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6, maxWidth: 460 }}>
+                    {isOffice
+                      ? 'Office documents are rendered by the Microsoft Office viewer, which needs a signed storage link — the server did not return one. Download the file to open it locally.'
+                      : "Inline preview isn't available for this file type. Use Download to save a copy."}
+                  </div>
+                  <button onClick={handleDownload} style={{ ...actionBtn, marginTop: 14, background: GOLD, color: TEAL_900 }}>Download</button>
+                </div>
               </div>
             )}
           </div>
@@ -255,6 +330,20 @@ function DocViewer({ id, initialWhich, onClose, isAdmin }) {
     </div>
   );
 }
+
+/**
+ * Thin strip under an embedded preview. Browsers that refuse to render a
+ * PDF/Office file inline leave the frame blank with no explanation — this
+ * always gives the user a way out.
+ */
+const PreviewHint = ({ url, onDownload }) => (
+  <div style={{ background: 'rgba(0,0,0,0.35)', color: 'rgba(255,255,255,0.75)', fontSize: 11.5, padding: '8px 12px', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+    <span>Preview not showing?</span>
+    {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: GOLD, fontWeight: 700 }}>Open in a new tab</a>}
+    <span>·</span>
+    <button onClick={onDownload} style={{ background: 'transparent', border: 0, color: GOLD, fontWeight: 700, cursor: 'pointer', fontSize: 11.5, padding: 0 }}>Download</button>
+  </div>
+);
 
 const MetaCard = ({ rows }) => (
   <div style={cardStyle}>
@@ -442,11 +531,9 @@ export default function MLD({ user }) {
               <span>Sorted by <span>{sort.col} {sort.dir === 'asc' ? '▲' : '▼'}</span></span>
             </div>
             <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 1200 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 1090 }}>
                 <thead>
                   <tr>
-                    <Th style={{ width: 60 }}>View</Th>
-                    <Th onClick={() => toggleSort('n')}   sortActive={sort.col === 'n'}   dir={sort.dir} style={{ width: 50 }}>#</Th>
                     <Th onClick={() => toggleSort('ref')} sortActive={sort.col === 'ref'} dir={sort.dir} style={{ width: 160 }}>Reference No.</Th>
                     <Th onClick={() => toggleSort('name')}sortActive={sort.col === 'name'}dir={sort.dir}>Document Name</Th>
                     <Th onClick={() => toggleSort('cat')} sortActive={sort.col === 'cat'} dir={sort.dir} style={{ width: 110 }}>Cat</Th>
@@ -462,18 +549,22 @@ export default function MLD({ user }) {
                 </thead>
                 <tbody>
                   {state.loading && (
-                    <tr><td colSpan={13} style={emptyRowStyle}>Loading…</td></tr>
+                    <tr><td colSpan={11} style={emptyRowStyle}>Loading…</td></tr>
                   )}
                   {!state.loading && filtered.length === 0 && (
-                    <tr><td colSpan={13} style={emptyRowStyle}>No documents match your filters.</td></tr>
+                    <tr><td colSpan={11} style={emptyRowStyle}>No documents match your filters.</td></tr>
                   )}
                   {filtered.map(d => (
                     <tr key={d.id} style={{ borderBottom: `1px solid ${LINE}` }}>
+                      {/* Reference No. doubles as the open-viewer control now
+                          that the dedicated View column is gone. */}
                       <td style={tdStyle}>
-                        <button onClick={() => { setViewerId(d.id); setViewerWhich('controlled'); }} title="Open viewer" style={eyeBtn}>👁</button>
+                        <button
+                          onClick={() => { setViewerId(d.id); setViewerWhich('controlled'); }}
+                          title="Open viewer"
+                          style={refBtn}
+                        >{d.ref || '(reference pending)'}</button>
                       </td>
-                      <td style={{ ...tdStyle, color: INK_2, fontVariantNumeric: 'tabular-nums' }}>{d.n ?? ''}</td>
-                      <td style={tdStyle}><b>{d.ref || '(reference pending)'}</b></td>
                       <td style={tdStyle}>{d.name || ''}</td>
                       <td style={tdStyle}><Pill>{d.cat || '—'}</Pill></td>
                       <td style={tdStyle}>{d.typ || '—'}</td>
@@ -541,7 +632,7 @@ export default function MLD({ user }) {
             <div style={{ fontFamily: 'Georgia, serif', fontWeight: 800, fontSize: 18, color: TEAL_900, marginBottom: 8 }}>How to use this view</div>
             <ol style={{ fontSize: 13, lineHeight: 1.7, color: INK_2, paddingLeft: 18 }}>
               <li><b>Scoping.</b> LedgerTrace only exposes documents from the departments configured in <code>MLD_ALLOWED_DEPARTMENTS</code> on the server — defaults to Accounts + Finance.</li>
-              <li><b>Browsing.</b> Use the Master Index tab to search and filter. Click the 👁 icon to open a document.</li>
+              <li><b>Browsing.</b> Use the Master Index tab to search and filter. Click a <b>Reference No.</b> to open that document.</li>
               <li><b>Sorting.</b> Click a column header to sort; click again to reverse.</li>
               <li><b>Files.</b> Click the green <b>controlled</b> pill to preview. Admins additionally see a <b>master</b> pill.</li>
               <li><b>Editing.</b> All changes belong in the DOMAS Document Manager — this screen is read-only.</li>
@@ -638,7 +729,11 @@ const cardStyle = { background: '#fff', border: `1px solid ${LINE}`, borderRadiu
 const emptyRowStyle = { padding: 50, textAlign: 'center', color: INK_2 };
 const btnStyle = { padding: '8px 14px', borderRadius: 8, border: 0, background: TEAL_700, color: '#fff', fontWeight: 700, cursor: 'pointer' };
 const ghostBtnDark = { background: 'rgba(255,255,255,0.10)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)', padding: '8px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' };
-const eyeBtn = { background: 'transparent', border: 0, cursor: 'pointer', color: TEAL_800, padding: '4px 6px', fontSize: 16 };
+const refBtn = {
+  background: 'transparent', border: 0, padding: 0, cursor: 'pointer',
+  color: TEAL_800, fontWeight: 800, fontSize: 12.5, fontFamily: 'inherit',
+  textAlign: 'left', textDecoration: 'underline', textUnderlineOffset: 3,
+};
 const actionBtn = { background: 'rgba(255,255,255,0.10)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' };
 const emptyStyle = { flex: 1, display: 'grid', placeItems: 'center', color: '#fff', textAlign: 'center', padding: 30 };
 const overlayStyle = { position: 'fixed', inset: 0, background: 'rgba(8, 35, 30, 0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 };
