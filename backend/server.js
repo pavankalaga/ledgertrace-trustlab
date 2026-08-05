@@ -51,6 +51,11 @@ app.get('/api/health', (req, res) => {
 const { listFacilities: publicListFacilities } = require('./controllers/loanController');
 app.get('/api/loans/facilities', publicListFacilities);
 
+// One-way migration export consumed by LedgerTrace 2.0 (ledgertrace-py). Also
+// server-to-server, so it sits outside the JWT middleware and is gated on the
+// MIGRATION_KEY shared secret instead — see routes/migration.js.
+app.use('/api/migration', require('./routes/migration'));
+
 // Auth middleware — everything below this requires a valid token
 app.use('/api', auth);
 
